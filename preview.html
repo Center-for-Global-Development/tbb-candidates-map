@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-cgd-harness="true">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TBB candidates map — review page</title>
+<style>
+  :root{--font-sans:"Sofia Pro","Inter","Helvetica Neue",Arial,sans-serif}
+  body{margin:0;padding:24px 16px;background:#F3F6F7;color:#1A272A;font-family:var(--font-sans)}
+  .page{max-width:960px;margin:0 auto}
+  p{font-size:14px;line-height:1.5;color:#394649}
+  iframe{display:block;width:100%;border:0;background:#fff;height:620px;margin-bottom:10px}
+  h2{font-size:15px;color:#0B4C5B;margin:18px 0 8px}
+  #log{font:12px/1.5 ui-monospace,Consolas,monospace;color:#394649;white-space:pre-wrap;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="page">
+  <p>Review page: embeds the figure the way cgdev.org does and applies the height it reports. Not for publication.</p>
+  <h2>Where are the skilled refugees the UK could recruit?</h2>
+  <iframe class="fig" src="index.html" title="Map: Talent Beyond Boundaries candidates by country and occupation"></iframe>
+  <div id="log"></div>
+</div>
+<script>
+  // One listener; each message is matched to the iframe that sent it, so the
+  // log shows whether the frame shrinks as well as grows.
+  const frames = [...document.querySelectorAll('iframe.fig')], log = document.getElementById('log');
+  const lines = [];
+  window.addEventListener('message', e => {
+    const frame = frames.find(f => f.contentWindow === e.source);
+    if (!frame || !e.data || e.data.type !== 'cgd-iframe-resize') return;
+    const before = parseInt(frame.style.height || frame.clientHeight, 10);
+    frame.style.height = e.data.height + 'px';
+    lines.push(`${new Date().toLocaleTimeString()}  height ${before} → ${e.data.height}`);
+    log.textContent = lines.slice(-12).join('\n');
+  });
+</script>
+</body>
+</html>

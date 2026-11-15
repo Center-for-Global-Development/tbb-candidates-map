@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en" data-cgd-interactive-name="dtv-tbb-candidates-map">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Where are the skilled refugees the UK could recruit?</title>
+<link rel="stylesheet" href="shared/cgd-figure.css?v=20261115a">
+<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261115a">
+<style>
+  /* Desktop: one control row — skill level, shortage-list checkbox, occupation.
+     The shared grid takes over at 760px; the occupation select and the checkbox
+     each span both columns there so no option text is ever truncated. */
+  #controls{flex-wrap:nowrap}
+  .skill-control{flex:0 0 auto}
+  .tsl-control{flex:0 0 auto;align-self:flex-end;padding-bottom:9px}
+  .occ-control{flex:1 1 auto;min-width:0}
+  .segmented button{white-space:nowrap}
+  #skillToggle{display:flex}
+  #skillToggle button{flex:1 1 auto}
+  .control-fieldset[aria-disabled="true"]{opacity:.45}
+  .control-fieldset[aria-disabled="true"] button{cursor:not-allowed}
+
+  @media (max-width:760px){
+    .occ-control,.tsl-control{grid-column:1/-1}
+    .skill-control{grid-column:1/-1}
+    .tsl-control{padding-bottom:0}
+    #skillToggle button{padding-inline:6px}
+  }
+  .cgd-mobile-embed .occ-control,
+  .cgd-mobile-embed .tsl-control,
+  .cgd-mobile-embed .skill-control{grid-column:1/-1}
+  .cgd-mobile-embed .tsl-control{padding-bottom:0}
+
+  /* Title above the key at every width: the two sit on separate rows so the
+     figure does not shift when the subtitle or the key text changes length. */
+  .panel-header{grid-template-columns:minmax(0,1fr);gap:4px}
+  .legend-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+  .legend-row .panel-title{flex:1 1 auto;min-width:0;white-space:normal}
+  .legend-row select{flex:0 0 190px;width:190px;height:30px;min-height:30px;padding-top:3px;padding-bottom:3px}
+  @media (max-width:600px){
+    .legend-row{flex-wrap:wrap}
+    .legend-row select{flex:1 1 100%;width:100%}
+  }
+  .scale-legend{display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap;font-size:10.2px;color:var(--cgd-dark-gray)}
+  .scale-legend .bin{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+  .scale-legend .chip{width:18px;height:10px;border:1px solid rgba(26,39,42,.10);flex:0 0 auto}
+  .scale-legend .chip.ho{background:#fff;border:2px solid var(--cgd-gold)}
+
+  .map{position:relative;background:#F2F7F8;border:1px solid #EDF2F3;border-radius:10px;overflow:hidden}
+  .map svg{display:block;width:100%;height:auto;touch-action:manipulation}
+  .context{fill:#E9EBEC;stroke:#fff;stroke-width:.5;vector-effect:non-scaling-stroke;pointer-events:none}
+  /* A darker boundary than the context's white, so the 26 catalogue countries
+     read as one set even where the fill is at the pale end of the ramp. */
+  .country{stroke:#7E9499;stroke-width:.7;vector-effect:non-scaling-stroke;cursor:pointer;stroke-linejoin:round}
+  .country.small{paint-order:stroke fill}
+  /* The gold ring marks the seven countries of the first phase. It is drawn as
+     its own layer above every fill so a neighbour's fill cannot paint over it,
+     and it is never used for hover or selection — those are teal-black, so the
+     reader cannot mistake "selected" for "chosen by the Home Office". */
+  .ho-ring{fill:none;stroke:var(--cgd-gold);stroke-width:1.9;vector-effect:non-scaling-stroke;pointer-events:none;stroke-linejoin:round}
+  .outline{fill:none;stroke:var(--cgd-teal-black);stroke-width:2.2;vector-effect:non-scaling-stroke;pointer-events:none;stroke-linejoin:round}
+  /* The shared rule paints SVG keyboard focus gold. Gold means "one of the
+     seven" on this map, so focus is re-pointed at the same teal-black the
+     selected outline uses — more specific than the shared selector. */
+  .map svg [tabindex]:focus-visible{stroke:var(--cgd-teal-black);stroke-width:2.2;paint-order:stroke}
+  /* A dilated small country is mostly stroke: recolouring it keeps the mark the
+     size it was, where the rule above would shrink it on focus. */
+  .map svg .country.small:focus-visible{stroke:var(--cgd-teal-black);stroke-width:6}
+
+  /* Jordan and Lebanon hold the two largest pools and are among the smallest
+     countries on the map, so area under-states them however the colour is
+     scaled. Labels cannot be placed in that cluster without colliding at some
+     filter setting, so the ranking is carried as one line of text instead. */
+  .top-line{margin:7px 2px 0;color:var(--cgd-dark-gray);font-size:11.4px;line-height:1.35}
+  .top-line b{color:var(--cgd-teal);font-weight:700}
+
+  .notes button.linklike{border:0;background:none;padding:0;font:inherit;color:var(--cgd-light-teal);text-decoration:underline;cursor:pointer}
+  .notes button.linklike:hover{color:var(--cgd-teal)}
+</style>
+</head>
+<body>
+<div id="vizRoot" class="viz-wrapper">
+  <div class="header-row">
+    <div class="title-block">
+      <h1 id="vizTitle">Where are the skilled refugees the UK could recruit?</h1>
+      <p class="viz-sub" id="vizSub"></p>
+    </div>
+    <button class="fullscreen-btn" id="fullscreenBtn" type="button" aria-label="View fullscreen" data-tip="View fullscreen">
+      <svg class="icon-expand" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg class="icon-compress" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 3v5H3M16 3v5h5M8 21v-5H3M16 21v-5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <div class="controls" id="controls" aria-label="Map filters">
+    <div class="control-group skill-control control-fieldset" id="skillGroup">
+      <div class="control-label" id="skillLabel">Skill level</div>
+      <div class="segmented" id="skillToggle" role="group" aria-labelledby="skillLabel">
+        <button type="button" data-rqf="ALL" aria-pressed="true">All</button>
+        <button type="button" data-rqf="RQF 6+" aria-pressed="false">RQF&nbsp;6+</button>
+        <button type="button" data-rqf="RQF 3-5" aria-pressed="false">RQF&nbsp;3&#8211;5</button>
+        <button type="button" data-rqf="RQF 1-2" aria-pressed="false">RQF&nbsp;1&#8211;2</button>
+      </div>
+    </div>
+    <div class="control-group tsl-control check-line">
+      <label for="tslOnly"><input type="checkbox" id="tslOnly"> Shortage&#8209;list occupations only</label>
+    </div>
+    <div class="control-group occ-control">
+      <label for="occSelect">Occupation</label>
+      <select id="occSelect" class="plain-select"></select>
+    </div>
+  </div>
+
+  <section class="panel">
+    <div class="panel-header">
+      <div class="legend-row">
+        <h2 class="panel-title" id="panelTitle">Candidates by country of residence</h2>
+        <select id="countrySelect" class="plain-select" aria-label="Find a country"></select>
+      </div>
+      <div class="scale-legend" id="scaleLegend"></div>
+    </div>
+    <div class="chart-area">
+      <div class="map" id="map"></div>
+      <p class="top-line" id="topLine"></p>
+    </div>
+  </section>
+
+  <div class="notes" id="notes"></div>
+  <div class="tooltip" id="tooltip" hidden></div>
+</div>
+
+<script src="shared/dom.js?v=20261115a"></script>
+<script src="shared/chart-core.js?v=20261115a"></script>
+<script src="data/world-paths.js?v=20261115a"></script>
+<script src="data/tbb-candidates-data.js?v=20261115a"></script>
+<script>
+(() => {
+  'use strict';
+  window.CGD_READY = false;
+  const { element, svgEl, downloadCsv } = window.CGDDom;
+  const C = window.CGDCore;
+  const GEO = window.TBB_GEO, DATA = window.TBB_DATA;
+
+  // ---- data contract -------------------------------------------------------
+  const COUNTRIES = DATA.countries, OCCS = DATA.occupations;
+  (function assertContract() {
+    if (!Array.isArray(COUNTRIES) || !COUNTRIES.length) throw new Error('No countries in payload.');
+    const seen = new Set();
+    for (const c of COUNTRIES) {
+      if (!GEO.countries[c.id]) throw new Error('No geometry for ' + c.name);
+      if (seen.has(c.id)) throw new Error('Duplicate country id ' + c.id);
+      seen.add(c.id);
+    }
+    for (const o of OCCS) {
+      if (o.v.length !== COUNTRIES.length) throw new Error('Count vector length mismatch: ' + o.n);
+      if (o.v.some(v => !Number.isFinite(v) || v < 0)) throw new Error('Bad count in ' + o.n);
+    }
+  })();
+
+  const nf = new Intl.NumberFormat('en-GB');
+  const fmt = n => nf.format(Math.round(n));
+  const pct = f => C.formatPercent(f, f > 0 && f < 0.01 ? 1 : 0);
+
+  // Six sequential classes. Candidate counts run from about 140 to 35,000 at
+  // the default, and from a handful to a few hundred inside one occupation, so
+  // a single fixed set of bands either flattens the whole map to the darkest
+  // two classes or, under a filter, to the palest one. The bands are therefore
+  // log-spaced across the range actually on screen and rounded to readable
+  // numbers, and the key always states them — so the colours show the spread
+  // under every filter and no reader has to infer a value from a hue.
+  // The palest step has to be clearly a colour, not an off-grey: at #E4F0F1 the
+  // smallest pools (Costa Rica, Guatemala, the Dominican Republic) were
+  // indistinguishable from the countries that are not in the catalogue at all,
+  // which is the one confusion a choropleth must never allow.
+  const RAMP = ['#CDE6E9', '#A7D5DB', '#79BECB', '#2D99B5', '#006970', '#0B4C5B'];
+  const OUTSIDE = '#E9EBEC';
+  const NICE = [1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10];
+  function niceCeil(x) {
+    const k = Math.pow(10, Math.floor(Math.log10(x)));
+    return Math.round(k * NICE.find(m => x <= m * k + 1e-9));
+  }
+  /** Upper bound of each class, ascending; the last is the maximum shown. */
+  function thresholds(totals) {
+    const vals = totals.filter(v => v > 0);
+    if (!vals.length) return [];
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    if (lo === hi) return [hi];
+    const out = [];
+    for (let i = 1; i <= RAMP.length; i++) {
+      const t = i === RAMP.length ? hi : niceCeil(lo * Math.pow(hi / lo, i / RAMP.length));
+      if (t >= hi) { out.push(hi); break; }
+      if (!out.length || t > out[out.length - 1]) out.push(t);
+    }
+    return out;
+  }
+  const binOf = (v, ths) => { const i = ths.findIndex(t => v <= t); return i === -1 ? ths.length - 1 : i; };
+  /** Fewer classes than the ramp has steps still span light to dark. */
+  const rampColour = (bin, n) => n < 2 ? RAMP[RAMP.length - 1] : RAMP[Math.round(bin * (RAMP.length - 1) / (n - 1))];
+  const colourOf = (v, ths) => v === 0 || !ths.length
+    ? 'url(#zeroHatch)'
+    : rampColour(binOf(v, ths), ths.length);
+  // Countries too small to see or hit at this projection — Lebanon and Trinidad
+  // and Tobago among them, and Lebanon holds the second largest pool of all.
+  // They are dilated by a stroke in their own fill colour rather than replaced
+  // by a symbol: the shape stays true, the mark reaches a usable size, and the
+  // stroke does not scale, so it is the same size at 320px as at 1200px.
+  const SMALL = 45, DILATE = 6;
+
+  // Fitted extent, not the whole globe: the catalogue runs from Guatemala to
+  // Indonesia and from Türkiye to South Africa, so the empty Pacific and the
+  // Arctic were costing about a third of the frame and shrinking every country
+  // that carries data. Surrounding land is still drawn and simply clipped.
+  const VIEW = { x: 180, y: 46, w: 668, h: 352 };
+
+  const RQF_LABEL = { 'RQF 6+': 'RQF 6+', 'RQF 3-5': 'RQF 3–5', 'RQF 1-2': 'RQF 1–2' };
+  const HO_COUNT = COUNTRIES.filter(c => c.ho).length;
+  const HO_WORD = { 5: 'five', 6: 'six', 7: 'seven', 8: 'eight' }[HO_COUNT] || String(HO_COUNT);
+
+  const S = { rqf: 'ALL', tslOnly: false, occ: 'ALL', selected: null };
+
+  const mapEl = document.getElementById('map');
+  const tooltip = document.getElementById('tooltip');
+  const occSelect = document.getElementById('occSelect');
+  const countrySelect = document.getElementById('countrySelect');
+  const skillToggle = document.getElementById('skillToggle');
+  const skillGroup = document.getElementById('skillGroup');
+  const tslBox = document.getElementById('tslOnly');
+
+  // ---- view model ----------------------------------------------------------
+  function matches(o, { rqf, tslOnly }) {
+    if (tslOnly && o.t !== 'Yes') return false;
+    if (rqf !== 'ALL' && o.r !== rqf) return false;
+    return true;
+  }
+  function view(s) {
+    const pool = OCCS.filter(o => matches(o, s));
+    const rows = s.occ === 'ALL' ? pool : pool.filter(o => o.n === s.occ);
+    const totals = COUNTRIES.map((_, i) => rows.reduce((a, o) => a + o.v[i], 0));
+    const total = totals.reduce((a, b) => a + b, 0);
+    const ho = COUNTRIES.reduce((a, c, i) => a + (c.ho ? totals[i] : 0), 0);
+    return { pool, rows, totals, total, ho, withAny: totals.filter(v => v > 0).length };
+  }
+
+  // ---- controls ------------------------------------------------------------
+  function fillOccSelect(pool) {
+    const names = pool.map(o => o.n).sort((a, b) => a.localeCompare(b));
+    occSelect.replaceChildren(
+      element('option', { text: `All occupations (${names.length})`, attributes: { value: 'ALL' } }),
+      ...names.map(n => element('option', { text: n, attributes: { value: n } }))
+    );
+    if (!names.includes(S.occ)) S.occ = 'ALL';
+    occSelect.value = S.occ;
+  }
+  function fillCountrySelect() {
+    countrySelect.replaceChildren(
+      element('option', { text: 'Find a country…', attributes: { value: '' } }),
+      ...COUNTRIES.map(c => element('option', { text: c.name + (c.ho ? ' ★' : ''), attributes: { value: c.id } }))
+    );
+    countrySelect.value = S.selected || '';
+  }
+  function syncControls() {
+    // Every shortage-list occupation is RQF 3–5 by construction, so while the
+    // checkbox is on the skill control can only ever say the same thing. It is
+    // disabled rather than left to look like a live filter that does nothing.
+    const locked = S.tslOnly;
+    skillGroup.setAttribute('aria-disabled', String(locked));
+    if (locked) skillGroup.setAttribute('data-tip', 'Every shortage-list occupation is RQF 3–5');
+    else skillGroup.removeAttribute('data-tip');
+    skillToggle.querySelectorAll('button').forEach(b => {
+      b.disabled = locked;
+      b.setAttribute('aria-pressed', String(!locked && b.dataset.rqf === S.rqf));
+    });
+    tslBox.checked = S.tslOnly;
+  }
+
+  // ---- render --------------------------------------------------------------
+  let lastWidth = 960;
+
+  function render(width) {
+    lastWidth = width || lastWidth;
+    const v = view(S);
+    const ths = thresholds(v.totals);
+
+    const svg = svgEl('svg', {
+      viewBox: `${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`,
+      preserveAspectRatio: 'xMidYMid meet',
+      role: 'img',
+      'aria-label': summaryText(v)
+    });
+
+    const defs = svgEl('defs');
+    const pat = svgEl('pattern', { id: 'zeroHatch', width: 5, height: 5, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' });
+    pat.append(svgEl('rect', { width: 5, height: 5, fill: '#F4F6F7' }));
+    pat.append(svgEl('line', { x1: 0, y1: 0, x2: 0, y2: 5, stroke: '#B9C3C6', 'stroke-width': 1.6 }));
+    defs.append(pat);
+    svg.append(defs);
+
+    svg.append(svgEl('path', { class: 'context', d: GEO.context }));
+
+    const fills = svgEl('g'), rings = svgEl('g'), outline = svgEl('g');
+    COUNTRIES.forEach((c, i) => {
+      const g = GEO.countries[c.id], n = v.totals[i], colour = colourOf(n, ths);
+      const small = g.a < SMALL;
+      const node = svgEl('path', { class: 'country' + (small ? ' small' : ''), d: g.d });
+      node.style.fill = colour;
+      if (small) {
+        node.style.stroke = n === 0 ? '#C2CBCD' : colour;
+        node.style.strokeWidth = DILATE;
+      }
+      node.setAttribute('tabindex', '0');
+      node.setAttribute('role', 'img');
+      node.setAttribute('data-id', c.id);
+      node.setAttribute('aria-label', `${c.name}: ${fmt(n)} ${n === 1 ? 'candidate' : 'candidates'}${c.ho ? `, one of the ${HO_WORD} countries chosen for the first phase` : ''}`);
+      attach(node, c, i, v);
+      fills.append(node);
+      if (c.ho) rings.append(svgEl('path', { class: 'ho-ring', d: g.d }));
+      if (S.selected === c.id) {
+        // A dilated shape is mostly stroke, so an outline traced on its true
+        // boundary would be buried inside it; the small ones get a halo ring
+        // clear of the mark instead.
+        outline.append(small
+          ? svgEl('circle', { class: 'outline', cx: g.cx, cy: g.cy, r: DILATE })
+          : svgEl('path', { class: 'outline', d: g.d }));
+      }
+    });
+    svg.append(fills, rings, outline);
+    svg.addEventListener('click', e => {
+      if (e.target === svg || e.target.classList.contains('context')) clearSelection();
+    });
+    mapEl.replaceChildren(svg);
+
+    renderLegend(ths);
+    renderSub(v);
+    renderTopLine(v);
+    renderNotes(v);
+    occSelect.value = S.occ;
+    countrySelect.value = S.selected || '';
+  }
+
+  function renderLegend(ths) {
+    const key = (bg, label, isHo) => {
+      const chip = element('span', { className: 'chip' + (isHo ? ' ho' : '') });
+      if (bg) chip.style.background = bg;
+      return element('span', { className: 'bin' }, [chip, element('span', { text: label })]);
+    };
+    // Upper bounds only: "2,501–7,500" on every class is three times the text
+    // for the same information, and wraps to four rows on a phone.
+    const classes = ths.map((t, i) => key(
+      rampColour(i, ths.length),
+      i === ths.length - 1 ? fmt(ths[i - 1] ? ths[i - 1] + 1 : 1) + '+' : '≤' + fmt(t)
+    ));
+    document.getElementById('scaleLegend').replaceChildren(
+      element('span', { className: 'bin' }, [element('span', { text: 'Candidates:' })]),
+      key('repeating-linear-gradient(45deg,#F4F6F7,#F4F6F7 2px,#B9C3C6 2px,#B9C3C6 3.5px)', 'none'),
+      ...classes,
+      key(OUTSIDE, 'not in the catalogue'),
+      key(null, 'first-phase country', true)
+    );
+  }
+
+  function filterPhrase() {
+    if (S.occ !== 'ALL') return `listed as ${S.occ.charAt(0).toLowerCase() + S.occ.slice(1)}`;
+    if (S.tslOnly) return 'in shortage-list occupations';
+    if (S.rqf !== 'ALL') return `in ${RQF_LABEL[S.rqf]} occupations`;
+    return 'in TBB’s catalogue';
+  }
+  function summaryText(v) {
+    return `World map. ${fmt(v.total)} Talent Beyond Boundaries candidates ${filterPhrase()}, `
+      + `in ${v.withAny} of ${COUNTRIES.length} countries. `
+      + `${pct(v.total ? v.ho / v.total : 0)} are in the ${HO_WORD} countries chosen for the first phase.`;
+  }
+  function renderSub(v) {
+    document.getElementById('vizSub').textContent = v.total
+      ? `${fmt(v.total)} candidates ${filterPhrase()} · `
+        + `${pct(v.ho / v.total)} in the ${HO_WORD} first-phase countries`
+      : 'No candidates match these filters.';
+  }
+
+  function renderTopLine(v) {
+    const top = COUNTRIES.map((c, i) => ({ c, n: v.totals[i] }))
+      .filter(x => x.n > 0)
+      .sort((a, b) => b.n - a.n || a.c.name.localeCompare(b.c.name))
+      .slice(0, 3);
+    const el = document.getElementById('topLine');
+    if (!top.length) { el.replaceChildren(); return; }
+    const parts = [element('span', { text: 'Largest pools: ' })];
+    top.forEach((x, i) => {
+      if (i) parts.push(element('span', { text: ' · ' }));
+      parts.push(element('span', { text: x.c.name + ' ' }), element('b', { text: fmt(x.n) }));
+    });
+    el.replaceChildren(...parts);
+  }
+
+  function renderNotes(v) {
+    const notes = document.getElementById('notes');
+    const dl = element('button', { className: 'linklike', text: 'Download these numbers (CSV)', attributes: { type: 'button' } });
+    dl.addEventListener('click', () => {
+      downloadCsv('tbb-candidates-' + (S.occ === 'ALL' ? 'all-occupations' : slug(S.occ)) + '.csv',
+        ['Country', 'Candidates', 'First-phase country'],
+        COUNTRIES.map((c, i) => [c.name, v.totals[i], c.ho ? 'Yes' : 'No']));
+      window.CGDTracking?.engagement('download', 'country_counts', S.occ);
+    });
+    notes.replaceChildren(
+      element('p', { attributes: { style: 'margin:0' } }, [
+        element('strong', { text: 'Source: ' }),
+        element('span', {
+          text: 'Talent Beyond Boundaries talent catalogue. Candidates are people registered with TBB, not applicants to any UK route. '
+            + 'Gold rings mark the ' + HO_WORD + ' countries named for the first phase in the Home Office written statement of 29 October 2026. '
+            + 'Skill level and shortage-list status come from the Migration Advisory Committee’s Temporary Shortage List stage 2 review, Annex 4, '
+            + 'via CGD’s match of TBB’s occupation descriptions to SOC 2020 codes; that match is indicative, as TBB’s descriptions are '
+            + 'coarser than SOC and some fit more than one code. Shading bands are recalculated for the occupations shown and the key gives them in full. '
+            + fmt(DATA.excluded) + ' candidates whose recorded occupation has no SOC equivalent, or is not an occupation, are excluded throughout. '
+            + 'Geometry: Natural Earth via world-atlas 2.0.2, Natural Earth 1 projection, fitted to the countries shown. '
+        }),
+        dl
+      ])
+    );
+  }
+  const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  // ---- tooltip -------------------------------------------------------------
+  let pinned = null;
+  // Re-rendering puts a new node under a stationary cursor, and the browser
+  // then fires pointerenter without the pointer having moved — so Escape would
+  // hide the tooltip and the very next frame would bring it straight back.
+  // Dismissal holds until the reader actually moves the pointer.
+  let dismissed = false;
+  function place(x, y) {
+    const pad = 10, box = tooltip.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+    tooltip.style.left = Math.max(pad, Math.min(x + 12, vw - box.width - pad)) + 'px';
+    tooltip.style.top = Math.max(pad, Math.min(y + 14, vh - box.height - pad)) + 'px';
+  }
+  function show(c, i, v, event, node) {
+    if (dismissed) return;
+    const n = v.totals[i], share = v.total ? n / v.total : 0;
+    tooltip.replaceChildren(
+      element('strong', { text: c.name }),
+      element('div', { className: 'tooltip-grid' }, [
+        element('span', { text: 'Candidates' }), element('b', { text: fmt(n) }),
+        element('span', { text: 'Share of those shown' }), element('b', { text: n ? pct(share) : '—' })
+      ]),
+      element('div', {
+        attributes: { style: 'margin-top:5px;color:#394649' },
+        text: c.ho ? 'Chosen for the first phase' : 'Not chosen for the first phase'
+      })
+    );
+    tooltip.hidden = false;
+    if (event && event.clientX != null && event.clientX !== 0) place(event.clientX, event.clientY);
+    else { const b = node.getBoundingClientRect(); place(b.left + b.width / 2, b.bottom); }
+  }
+  function attach(node, c, i, v) {
+    node.addEventListener('pointerenter', e => { if (e.pointerType !== 'touch') show(c, i, v, e, node); });
+    node.addEventListener('pointermove', e => {
+      if (e.pointerType === 'touch') return;
+      if (dismissed) { dismissed = false; show(c, i, v, e, node); return; }
+      if (!pinned) place(e.clientX, e.clientY);
+    });
+    node.addEventListener('pointerleave', () => { if (!pinned) tooltip.hidden = true; });
+    node.addEventListener('focus', () => { dismissed = false; show(c, i, v, null, node); });
+    node.addEventListener('blur', () => { if (!pinned) tooltip.hidden = true; });
+    node.addEventListener('click', e => {
+      e.stopPropagation();
+      S.selected = S.selected === c.id ? null : c.id;
+      window.CGDTracking?.engagement('select', 'country', c.name);
+      render();
+      // render() replaced every node, so the tooltip must be re-anchored to the
+      // freshly drawn mark — holding the old one leaves a tooltip pinned to a
+      // detached element that never clears.
+      const fresh = mapEl.querySelector(`[data-id="${c.id}"]`);
+      pinned = S.selected ? fresh : null;
+      if (S.selected) show(c, i, view(S), e, fresh);
+      else tooltip.hidden = true;
+    });
+  }
+  function clearSelection() {
+    if (!S.selected) return;
+    S.selected = null; pinned = null; tooltip.hidden = true; render();
+  }
+
+  // ---- wiring --------------------------------------------------------------
+  skillToggle.addEventListener('click', e => {
+    const b = e.target.closest('button[data-rqf]');
+    if (!b || b.disabled) return;
+    S.rqf = b.dataset.rqf;
+    afterFilter('skill_level', S.rqf);
+  });
+  tslBox.addEventListener('change', () => {
+    S.tslOnly = tslBox.checked;
+    if (S.tslOnly) S.rqf = 'ALL';
+    afterFilter('shortage_list_only', String(S.tslOnly));
+  });
+  occSelect.addEventListener('change', () => {
+    S.occ = occSelect.value;
+    window.CGDTracking?.engagement('filter', 'occupation', S.occ);
+    render();
+  });
+  countrySelect.addEventListener('change', () => {
+    S.selected = countrySelect.value || null;
+    pinned = null; tooltip.hidden = true;
+    window.CGDTracking?.engagement('select', 'country', countrySelect.selectedOptions[0]?.text || '');
+    render();
+  });
+  function afterFilter(label, value) {
+    // A filter change can remove the chosen occupation from the list, so the
+    // child control is rebuilt and reset before anything is drawn from it.
+    pinned = null; tooltip.hidden = true;
+    syncControls();
+    fillOccSelect(view(S).pool);
+    window.CGDTracking?.engagement('filter', label, value);
+    render();
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    dismissed = true;
+    if (pinned || S.selected) clearSelection(); else tooltip.hidden = true;
+  });
+  document.getElementById('fullscreenBtn').addEventListener('click', () => {
+    const root = document.getElementById('vizRoot');
+    if (document.fullscreenElement === root) document.exitFullscreen();
+    else root.requestFullscreen?.();
+  });
+
+  syncControls();
+  fillOccSelect(view(S).pool);
+  fillCountrySelect();
+  render(mapEl.getBoundingClientRect().width || 960);
+  window.CGD_READY = true;   // the QA gate waits for this
+  C.observeInlineSize(mapEl, w => render(w));
+  window.TBB_MAP = { state: S, view: () => view(S), render };
+})();
+</script>
+<script src="shared/cgd-embed.js?v=20261115a"></script>
+</body>
+</html>

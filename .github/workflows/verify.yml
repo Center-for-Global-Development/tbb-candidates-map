@@ -1,0 +1,28 @@
+# CGD interactive QA gate — copy this file to  .github/workflows/verify.yml  in the repo.
+# Deterministic headless-Chromium check (no LLM). Fails the PR if any figure fails.
+name: Verify interactives
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      # Install the QA harness (assumes templates/qa was copied to  ./qa  in the repo).
+      - working-directory: qa
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+      # Run the gate. Choose the line that matches your repo layout:
+      #  a) template layout (figure-*/index.html next to qa/):
+      - working-directory: qa
+        run: node verify.mjs
+      #  b) top-level figures (e.g. 1-foo.html, 2-bar.html at repo root) — use instead of (a):
+      # - run: node qa/verify.mjs *.html

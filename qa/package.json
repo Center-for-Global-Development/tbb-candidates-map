@@ -1,0 +1,14 @@
+{
+  "name": "cgd-interactive-qa",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic headless-Chromium QA gate for CGD interactive figures (no LLM).",
+  "scripts": {
+    "verify": "node verify.mjs",
+    "postinstall-note": "after npm install, run: npx playwright install chromium"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}
