@@ -4,32 +4,33 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Where are the skilled refugees the UK could recruit?</title>
-<link rel="stylesheet" href="shared/cgd-figure.css?v=20261115a">
-<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261115a">
+<link rel="stylesheet" href="shared/cgd-figure.css?v=20261115b">
+<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261115b">
 <style>
-  /* Desktop: one control row — skill level, shortage-list checkbox, occupation.
-     The shared grid takes over at 760px; the occupation select and the checkbox
-     each span both columns there so no option text is ever truncated. */
+  /* Desktop: one control row — the occupation band, then the occupation.
+     The band control carries the shortage list as a fifth option rather than a
+     checkbox beside it: the two were never independent (every shortage-list
+     occupation is RQF 3–5), so a separate control had to be disabled half the
+     time and looked like a live filter that did nothing. */
   #controls{flex-wrap:nowrap}
-  .skill-control{flex:0 0 auto}
-  .tsl-control{flex:0 0 auto;align-self:flex-end;padding-bottom:9px}
+  .band-control{flex:0 0 auto}
   .occ-control{flex:1 1 auto;min-width:0}
   .segmented button{white-space:nowrap}
-  #skillToggle{display:flex}
-  #skillToggle button{flex:1 1 auto}
-  .control-fieldset[aria-disabled="true"]{opacity:.45}
-  .control-fieldset[aria-disabled="true"] button{cursor:not-allowed}
+  #bandToggle{display:flex}
+  #bandToggle button{flex:1 1 auto}
 
   @media (max-width:760px){
-    .occ-control,.tsl-control{grid-column:1/-1}
-    .skill-control{grid-column:1/-1}
-    .tsl-control{padding-bottom:0}
-    #skillToggle button{padding-inline:6px}
+    .occ-control,.band-control{grid-column:1/-1}
+    #bandToggle button{padding-inline:6px}
+  }
+  @media (max-width:560px){
+    #bandToggle{flex-wrap:wrap}
+    #bandToggle button{flex:1 1 30%}
   }
   .cgd-mobile-embed .occ-control,
-  .cgd-mobile-embed .tsl-control,
-  .cgd-mobile-embed .skill-control{grid-column:1/-1}
-  .cgd-mobile-embed .tsl-control{padding-bottom:0}
+  .cgd-mobile-embed .band-control{grid-column:1/-1}
+  .cgd-mobile-embed #bandToggle{flex-wrap:wrap}
+  .cgd-mobile-embed #bandToggle button{flex:1 1 30%}
 
   /* Title above the key at every width: the two sit on separate rows so the
      figure does not shift when the subtitle or the key text changes length. */
@@ -67,12 +68,54 @@
      size it was, where the rule above would shrink it on focus. */
   .map svg .country.small:focus-visible{stroke:var(--cgd-teal-black);stroke-width:6}
 
-  /* Jordan and Lebanon hold the two largest pools and are among the smallest
-     countries on the map, so area under-states them however the colour is
-     scaled. Labels cannot be placed in that cluster without colliding at some
-     filter setting, so the ranking is carried as one line of text instead. */
-  .top-line{margin:7px 2px 0;color:var(--cgd-dark-gray);font-size:11.4px;line-height:1.35}
-  .top-line b{color:var(--cgd-teal);font-weight:700}
+  /* ---- country drill-down -------------------------------------------------
+     Anchored over the map panel, not the viewport. The figure is embedded in a
+     page that sizes the iframe to the whole content, so a viewport-fixed card
+     centres itself in the full document height and can land off-screen; over
+     the panel it always opens where the reader just clicked. */
+  .chart-area{position:relative}
+  .cmap-backdrop{position:absolute;inset:0;z-index:30;background:rgba(26,39,42,.38);
+    display:flex;align-items:center;justify-content:center;padding:10px;border-radius:10px}
+  .cmap-card{width:min(430px,100%);max-height:100%;display:flex;flex-direction:column;
+    background:#fff;border-radius:12px;padding:14px;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+  .cmap-top{display:flex;gap:10px;justify-content:space-between;align-items:flex-start}
+  .cmap-top h3{margin:0;color:var(--cgd-teal);font-size:14.5px;line-height:1.2}
+  .cmap-top .sub{margin:2px 0 0;font-size:11.4px;color:var(--cgd-dark-gray)}
+  .cmap-close{flex:0 0 auto;width:30px;height:30px;border:1px solid var(--border,#D9E1E4);
+    border-radius:8px;background:#fff;color:var(--cgd-teal);font:inherit;font-size:17px;
+    line-height:1;cursor:pointer}
+  #occBand{display:flex;margin:10px 0 8px}
+  #occBand button{flex:1 1 auto;white-space:nowrap;padding-inline:5px;font-size:11px}
+  /* One height whatever the country, so paging between countries does not make
+     the card jump: short lists simply leave space below. */
+  .occ-list{flex:1 1 auto;height:214px;overflow-y:auto;overscroll-behavior:contain;
+    padding-right:2px;border-top:1px solid var(--border,#D9E1E4)}
+  .occ-row{display:grid;grid-template-columns:minmax(0,1fr) 54px;gap:6px 8px;align-items:center;
+    padding:5px 1px 4px;border-bottom:1px solid #F0F4F5;font-size:11.6px;cursor:default}
+  .occ-row:hover{background:#F6FAFB}
+  .occ-row .nm{min-width:0;overflow-wrap:anywhere;color:var(--cgd-teal-black)}
+  .occ-row .vl{text-align:right;font-weight:700;color:var(--cgd-teal);font-variant-numeric:tabular-nums}
+  .occ-row .track{grid-column:1/-1;height:5px;background:#EDF2F3;border-radius:3px;overflow:hidden}
+  .occ-row .track i{display:block;height:100%;background:#2D99B5;border-radius:3px}
+  .occ-empty{padding:14px 2px;font-size:11.6px;color:var(--cgd-dark-gray)}
+
+  /* On a phone the map is about 150px tall, so there is no room to float a
+     card over it: the detail becomes a section under the map and the frame
+     grows to fit. Same content, same controls, same close button — the layout
+     is complete on its own rather than a shrunken desktop overlay. */
+  @media (max-width:620px){
+    .cmap-backdrop{position:static;display:block;background:none;padding:0}
+    .cmap-card{width:100%;max-height:none;margin-top:10px;padding:12px;
+      border:1px solid var(--border,#D9E1E4);box-shadow:none}
+    #occBand{flex-wrap:wrap}
+    #occBand button{flex:1 1 30%}
+    .occ-list{height:236px}
+  }
+  .cgd-mobile-embed .cmap-backdrop{position:static;display:block;background:none;padding:0}
+  .cgd-mobile-embed .cmap-card{width:100%;max-height:none;margin-top:10px;padding:12px;
+    border:1px solid var(--border,#D9E1E4);box-shadow:none}
+  .cgd-mobile-embed #occBand{flex-wrap:wrap}
+  .cgd-mobile-embed #occBand button{flex:1 1 30%}
 
   .notes button.linklike{border:0;background:none;padding:0;font:inherit;color:var(--cgd-light-teal);text-decoration:underline;cursor:pointer}
   .notes button.linklike:hover{color:var(--cgd-teal)}
@@ -83,7 +126,6 @@
   <div class="header-row">
     <div class="title-block">
       <h1 id="vizTitle">Where are the skilled refugees the UK could recruit?</h1>
-      <p class="viz-sub" id="vizSub"></p>
     </div>
     <button class="fullscreen-btn" id="fullscreenBtn" type="button" aria-label="View fullscreen" data-tip="View fullscreen">
       <svg class="icon-expand" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -92,17 +134,15 @@
   </div>
 
   <div class="controls" id="controls" aria-label="Map filters">
-    <div class="control-group skill-control control-fieldset" id="skillGroup">
-      <div class="control-label" id="skillLabel">Skill level</div>
-      <div class="segmented" id="skillToggle" role="group" aria-labelledby="skillLabel">
-        <button type="button" data-rqf="ALL" aria-pressed="true">All</button>
-        <button type="button" data-rqf="RQF 6+" aria-pressed="false">RQF&nbsp;6+</button>
-        <button type="button" data-rqf="RQF 3-5" aria-pressed="false">RQF&nbsp;3&#8211;5</button>
-        <button type="button" data-rqf="RQF 1-2" aria-pressed="false">RQF&nbsp;1&#8211;2</button>
+    <div class="control-group band-control">
+      <div class="control-label" id="bandLabel">Occupations</div>
+      <div class="segmented" id="bandToggle" role="group" aria-labelledby="bandLabel">
+        <button type="button" data-band="ALL" aria-pressed="true">All</button>
+        <button type="button" data-band="RQF 6+" aria-pressed="false">RQF&nbsp;6+</button>
+        <button type="button" data-band="RQF 3-5" aria-pressed="false">RQF&nbsp;3&#8211;5</button>
+        <button type="button" data-band="RQF 1-2" aria-pressed="false">RQF&nbsp;1&#8211;2</button>
+        <button type="button" data-band="TSL" aria-pressed="false">Shortage&nbsp;list</button>
       </div>
-    </div>
-    <div class="control-group tsl-control check-line">
-      <label for="tslOnly"><input type="checkbox" id="tslOnly"> Shortage&#8209;list occupations only</label>
     </div>
     <div class="control-group occ-control">
       <label for="occSelect">Occupation</label>
@@ -120,7 +160,25 @@
     </div>
     <div class="chart-area">
       <div class="map" id="map"></div>
-      <p class="top-line" id="topLine"></p>
+      <div class="cmap-backdrop" id="drill" hidden>
+      <div class="cmap-card" role="dialog" aria-modal="true" aria-labelledby="drillTitle">
+        <div class="cmap-top">
+          <div>
+            <h3 id="drillTitle"></h3>
+            <p class="sub" id="drillSub"></p>
+          </div>
+          <button type="button" class="cmap-close" id="drillClose" aria-label="Close">&#215;</button>
+        </div>
+        <div class="segmented" id="occBand" role="group" aria-label="Skill level within this country">
+          <button type="button" data-band="ALL" aria-pressed="true">All</button>
+          <button type="button" data-band="RQF 6+" aria-pressed="false">RQF&nbsp;6+</button>
+          <button type="button" data-band="RQF 3-5" aria-pressed="false">RQF&nbsp;3&#8211;5</button>
+          <button type="button" data-band="RQF 1-2" aria-pressed="false">RQF&nbsp;1&#8211;2</button>
+          <button type="button" data-band="TSL" aria-pressed="false">Shortage&nbsp;list</button>
+        </div>
+        <div class="occ-list" id="drillList"></div>
+      </div>
+      </div>
     </div>
   </section>
 
@@ -128,10 +186,10 @@
   <div class="tooltip" id="tooltip" hidden></div>
 </div>
 
-<script src="shared/dom.js?v=20261115a"></script>
-<script src="shared/chart-core.js?v=20261115a"></script>
-<script src="data/world-paths.js?v=20261115a"></script>
-<script src="data/tbb-candidates-data.js?v=20261115a"></script>
+<script src="shared/dom.js?v=20261115b"></script>
+<script src="shared/chart-core.js?v=20261115b"></script>
+<script src="data/world-paths.js?v=20261115b"></script>
+<script src="data/tbb-candidates-data.js?v=20261115b"></script>
 <script>
 (() => {
   'use strict';
@@ -172,7 +230,6 @@
   // indistinguishable from the countries that are not in the catalogue at all,
   // which is the one confusion a choropleth must never allow.
   const RAMP = ['#CDE6E9', '#A7D5DB', '#79BECB', '#2D99B5', '#006970', '#0B4C5B'];
-  const OUTSIDE = '#E9EBEC';
   const NICE = [1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10];
   function niceCeil(x) {
     const k = Math.pow(10, Math.floor(Math.log10(x)));
@@ -209,35 +266,44 @@
   // Indonesia and from Türkiye to South Africa, so the empty Pacific and the
   // Arctic were costing about a third of the frame and shrinking every country
   // that carries data. Surrounding land is still drawn and simply clipped.
-  const VIEW = { x: 180, y: 46, w: 668, h: 352 };
+  // Computed by the build from the catalogue's own extent, so a rebuild cannot
+  // leave the frame pointing at the wrong part of a re-scaled map.
+  const VIEW = GEO.view;
 
   const RQF_LABEL = { 'RQF 6+': 'RQF 6+', 'RQF 3-5': 'RQF 3–5', 'RQF 1-2': 'RQF 1–2' };
   const HO_COUNT = COUNTRIES.filter(c => c.ho).length;
   const HO_WORD = { 5: 'five', 6: 'six', 7: 'seven', 8: 'eight' }[HO_COUNT] || String(HO_COUNT);
 
-  const S = { rqf: 'ALL', tslOnly: false, occ: 'ALL', selected: null };
+  // One band, not a skill filter plus a shortage-list checkbox. Every
+  // shortage-list occupation is RQF 3–5 by construction, so the two could never
+  // say anything together that either did not say alone.
+  const S = { band: 'ALL', occ: 'ALL', selected: null };
 
   const mapEl = document.getElementById('map');
   const tooltip = document.getElementById('tooltip');
   const occSelect = document.getElementById('occSelect');
   const countrySelect = document.getElementById('countrySelect');
-  const skillToggle = document.getElementById('skillToggle');
-  const skillGroup = document.getElementById('skillGroup');
-  const tslBox = document.getElementById('tslOnly');
+  const bandToggle = document.getElementById('bandToggle');
 
   // ---- view model ----------------------------------------------------------
-  function matches(o, { rqf, tslOnly }) {
-    if (tslOnly && o.t !== 'Yes') return false;
-    if (rqf !== 'ALL' && o.r !== rqf) return false;
-    return true;
-  }
+  const inBand = (o, band) => band === 'ALL' ? true
+    : band === 'TSL' ? o.t === 'Yes'
+    : o.r === band;
   function view(s) {
-    const pool = OCCS.filter(o => matches(o, s));
+    const pool = OCCS.filter(o => inBand(o, s.band));
     const rows = s.occ === 'ALL' ? pool : pool.filter(o => o.n === s.occ);
     const totals = COUNTRIES.map((_, i) => rows.reduce((a, o) => a + o.v[i], 0));
     const total = totals.reduce((a, b) => a + b, 0);
     const ho = COUNTRIES.reduce((a, c, i) => a + (c.ho ? totals[i] : 0), 0);
     return { pool, rows, totals, total, ho, withAny: totals.filter(v => v > 0).length };
+  }
+  // The denominator behind "share of all candidates" in the tooltip: the whole
+  // catalogue, or the whole of one occupation when one is chosen — never the
+  // band subtotal, which made the same country's share move for a reason the
+  // reader could not see.
+  function universe(s) {
+    const rows = s.occ === 'ALL' ? OCCS : OCCS.filter(o => o.n === s.occ);
+    return rows.reduce((a, o) => a + o.v.reduce((x, y) => x + y, 0), 0);
   }
 
   // ---- controls ------------------------------------------------------------
@@ -258,18 +324,9 @@
     countrySelect.value = S.selected || '';
   }
   function syncControls() {
-    // Every shortage-list occupation is RQF 3–5 by construction, so while the
-    // checkbox is on the skill control can only ever say the same thing. It is
-    // disabled rather than left to look like a live filter that does nothing.
-    const locked = S.tslOnly;
-    skillGroup.setAttribute('aria-disabled', String(locked));
-    if (locked) skillGroup.setAttribute('data-tip', 'Every shortage-list occupation is RQF 3–5');
-    else skillGroup.removeAttribute('data-tip');
-    skillToggle.querySelectorAll('button').forEach(b => {
-      b.disabled = locked;
-      b.setAttribute('aria-pressed', String(!locked && b.dataset.rqf === S.rqf));
+    bandToggle.querySelectorAll('button').forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.band === S.band));
     });
-    tslBox.checked = S.tslOnly;
   }
 
   // ---- render --------------------------------------------------------------
@@ -329,8 +386,6 @@
     mapEl.replaceChildren(svg);
 
     renderLegend(ths);
-    renderSub(v);
-    renderTopLine(v);
     renderNotes(v);
     occSelect.value = S.occ;
     countrySelect.value = S.selected || '';
@@ -352,15 +407,14 @@
       element('span', { className: 'bin' }, [element('span', { text: 'Candidates:' })]),
       key('repeating-linear-gradient(45deg,#F4F6F7,#F4F6F7 2px,#B9C3C6 2px,#B9C3C6 3.5px)', 'none'),
       ...classes,
-      key(OUTSIDE, 'not in the catalogue'),
       key(null, 'first-phase country', true)
     );
   }
 
   function filterPhrase() {
     if (S.occ !== 'ALL') return `listed as ${S.occ.charAt(0).toLowerCase() + S.occ.slice(1)}`;
-    if (S.tslOnly) return 'in shortage-list occupations';
-    if (S.rqf !== 'ALL') return `in ${RQF_LABEL[S.rqf]} occupations`;
+    if (S.band === 'TSL') return 'in shortage-list occupations';
+    if (S.band !== 'ALL') return `in ${RQF_LABEL[S.band]} occupations`;
     return 'in TBB’s catalogue';
   }
   function summaryText(v) {
@@ -368,28 +422,6 @@
       + `in ${v.withAny} of ${COUNTRIES.length} countries. `
       + `${pct(v.total ? v.ho / v.total : 0)} are in the ${HO_WORD} countries chosen for the first phase.`;
   }
-  function renderSub(v) {
-    document.getElementById('vizSub').textContent = v.total
-      ? `${fmt(v.total)} candidates ${filterPhrase()} · `
-        + `${pct(v.ho / v.total)} in the ${HO_WORD} first-phase countries`
-      : 'No candidates match these filters.';
-  }
-
-  function renderTopLine(v) {
-    const top = COUNTRIES.map((c, i) => ({ c, n: v.totals[i] }))
-      .filter(x => x.n > 0)
-      .sort((a, b) => b.n - a.n || a.c.name.localeCompare(b.c.name))
-      .slice(0, 3);
-    const el = document.getElementById('topLine');
-    if (!top.length) { el.replaceChildren(); return; }
-    const parts = [element('span', { text: 'Largest pools: ' })];
-    top.forEach((x, i) => {
-      if (i) parts.push(element('span', { text: ' · ' }));
-      parts.push(element('span', { text: x.c.name + ' ' }), element('b', { text: fmt(x.n) }));
-    });
-    el.replaceChildren(...parts);
-  }
-
   function renderNotes(v) {
     const notes = document.getElementById('notes');
     const dl = element('button', { className: 'linklike', text: 'Download these numbers (CSV)', attributes: { type: 'button' } });
@@ -418,7 +450,6 @@
   const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
   // ---- tooltip -------------------------------------------------------------
-  let pinned = null;
   // Re-rendering puts a new node under a stationary cursor, and the browser
   // then fires pointerenter without the pointer having moved — so Escape would
   // hide the tooltip and the very next frame would bring it straight back.
@@ -432,12 +463,13 @@
   }
   function show(c, i, v, event, node) {
     if (dismissed) return;
-    const n = v.totals[i], share = v.total ? n / v.total : 0;
+    const n = v.totals[i], all = universe(S), share = all ? n / all : 0;
     tooltip.replaceChildren(
       element('strong', { text: c.name }),
       element('div', { className: 'tooltip-grid' }, [
         element('span', { text: 'Candidates' }), element('b', { text: fmt(n) }),
-        element('span', { text: 'Share of those shown' }), element('b', { text: n ? pct(share) : '—' })
+        element('span', { text: S.occ === 'ALL' ? 'Share of all candidates' : 'Share of this occupation' }),
+        element('b', { text: n ? pct(share) : '—' })
       ]),
       element('div', {
         attributes: { style: 'margin-top:5px;color:#394649' },
@@ -453,41 +485,121 @@
     node.addEventListener('pointermove', e => {
       if (e.pointerType === 'touch') return;
       if (dismissed) { dismissed = false; show(c, i, v, e, node); return; }
-      if (!pinned) place(e.clientX, e.clientY);
+      place(e.clientX, e.clientY);
     });
-    node.addEventListener('pointerleave', () => { if (!pinned) tooltip.hidden = true; });
+    node.addEventListener('pointerleave', () => { tooltip.hidden = true; });
     node.addEventListener('focus', () => { dismissed = false; show(c, i, v, null, node); });
-    node.addEventListener('blur', () => { if (!pinned) tooltip.hidden = true; });
+    node.addEventListener('blur', () => { tooltip.hidden = true; });
     node.addEventListener('click', e => {
       e.stopPropagation();
-      S.selected = S.selected === c.id ? null : c.id;
-      window.CGDTracking?.engagement('select', 'country', c.name);
-      render();
-      // render() replaced every node, so the tooltip must be re-anchored to the
-      // freshly drawn mark — holding the old one leaves a tooltip pinned to a
-      // detached element that never clears.
-      const fresh = mapEl.querySelector(`[data-id="${c.id}"]`);
-      pinned = S.selected ? fresh : null;
-      if (S.selected) show(c, i, view(S), e, fresh);
-      else tooltip.hidden = true;
+      selectCountry(c.id);
     });
+    node.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      selectCountry(c.id);
+    });
+  }
+  function selectCountry(id) {
+    S.selected = id;
+    tooltip.hidden = true;
+    const c = COUNTRIES.find(x => x.id === id);
+    window.CGDTracking?.engagement('select', 'country', c.name);
+    render();
+    openDrill(c);
   }
   function clearSelection() {
     if (!S.selected) return;
-    S.selected = null; pinned = null; tooltip.hidden = true; render();
+    S.selected = null; tooltip.hidden = true; render();
   }
 
-  // ---- wiring --------------------------------------------------------------
-  skillToggle.addEventListener('click', e => {
-    const b = e.target.closest('button[data-rqf]');
-    if (!b || b.disabled) return;
-    S.rqf = b.dataset.rqf;
-    afterFilter('skill_level', S.rqf);
+  // ---- country drill-down --------------------------------------------------
+  // The reader has clicked one country and wants to know what its people do.
+  // The band control here is the card's own: the map's filter sets its starting
+  // point, but narrowing inside the card does not re-colour the map underneath.
+  // The card also ignores the map's occupation filter — a list of occupations
+  // filtered to one occupation is a list of one row.
+  const drill = document.getElementById('drill');
+  const drillList = document.getElementById('drillList');
+  const occBand = document.getElementById('occBand');
+  const D = { country: null, band: 'ALL' };
+  let returnFocus = null;
+
+  function openDrill(c) {
+    D.country = c;
+    D.band = S.band;
+    returnFocus = mapEl.querySelector(`[data-id="${c.id}"]`);
+    drill.hidden = false;
+    renderDrill();
+    document.getElementById('drillClose').focus();
+    window.CGDTracking?.engagement('open', 'country_detail', c.name);
+  }
+  function closeDrill() {
+    if (drill.hidden) return;
+    drill.hidden = true;
+    const back = returnFocus && returnFocus.isConnected
+      ? returnFocus : mapEl.querySelector(`[data-id="${D.country?.id}"]`);
+    back?.focus();
+  }
+  function renderDrill() {
+    const c = D.country;
+    if (!c) return;
+    const i = COUNTRIES.indexOf(c);
+    const rows = OCCS.filter(o => inBand(o, D.band) && o.v[i] > 0)
+      .map(o => ({ o, n: o.v[i] }))
+      .sort((a, b) => b.n - a.n || a.o.n.localeCompare(b.o.n));
+    const shown = rows.reduce((a, r) => a + r.n, 0);
+    const max = rows.length ? rows[0].n : 0;
+
+    document.getElementById('drillTitle').textContent = c.name;
+    document.getElementById('drillSub').textContent = rows.length
+      ? `${fmt(shown)} ${shown === 1 ? 'candidate' : 'candidates'} across `
+        + `${rows.length} ${rows.length === 1 ? 'occupation' : 'occupations'}`
+      : 'No candidates in this group';
+    occBand.querySelectorAll('button').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.band === D.band)));
+
+    if (!rows.length) {
+      drillList.replaceChildren(element('p', {
+        className: 'occ-empty',
+        text: `No one in ${c.name}’s pool is recorded in a ${D.band === 'TSL'
+          ? 'shortage-list occupation' : RQF_LABEL[D.band] + ' occupation'}.`
+      }));
+      return;
+    }
+    drillList.replaceChildren(...rows.map(({ o, n }) => {
+      const bar = element('i');
+      bar.style.width = (max ? Math.max(2, (n / max) * 100) : 0) + '%';
+      const row = element('div', { className: 'occ-row' }, [
+        element('span', { className: 'nm', text: o.n }),
+        element('span', { className: 'vl', text: fmt(n) }),
+        element('span', { className: 'track' }, [bar])
+      ]);
+      row.setAttribute('data-tip',
+        `${o.n} — ${fmt(n)} of ${c.name}’s ${fmt(shown)} shown `
+        + `(${pct(shown ? n / shown : 0)}). ${RQF_LABEL[o.r] || o.r}; `
+        + (o.t === 'Yes' ? 'on the shortage list' : 'not on the shortage list')
+        + `. SOC ${o.soc} ${o.st}.`);
+      return row;
+    }));
+    drillList.scrollTop = 0;
+  }
+  occBand.addEventListener('click', e => {
+    const b = e.target.closest('button[data-band]');
+    if (!b) return;
+    D.band = b.dataset.band;
+    window.CGDTracking?.engagement('filter', 'country_detail_band', D.band);
+    renderDrill();
   });
-  tslBox.addEventListener('change', () => {
-    S.tslOnly = tslBox.checked;
-    if (S.tslOnly) S.rqf = 'ALL';
-    afterFilter('shortage_list_only', String(S.tslOnly));
+  document.getElementById('drillClose').addEventListener('click', closeDrill);
+  drill.addEventListener('click', e => { if (e.target === drill) closeDrill(); });
+
+  // ---- wiring --------------------------------------------------------------
+  bandToggle.addEventListener('click', e => {
+    const b = e.target.closest('button[data-band]');
+    if (!b) return;
+    S.band = b.dataset.band;
+    afterFilter('occupation_band', S.band);
   });
   occSelect.addEventListener('change', () => {
     S.occ = occSelect.value;
@@ -495,15 +607,15 @@
     render();
   });
   countrySelect.addEventListener('change', () => {
-    S.selected = countrySelect.value || null;
-    pinned = null; tooltip.hidden = true;
-    window.CGDTracking?.engagement('select', 'country', countrySelect.selectedOptions[0]?.text || '');
-    render();
+    // The select is the route to the countries too small to hit on the map, so
+    // it has to reach the same detail a click does.
+    if (countrySelect.value) selectCountry(countrySelect.value);
+    else clearSelection();
   });
   function afterFilter(label, value) {
     // A filter change can remove the chosen occupation from the list, so the
     // child control is rebuilt and reset before anything is drawn from it.
-    pinned = null; tooltip.hidden = true;
+    tooltip.hidden = true;
     syncControls();
     fillOccSelect(view(S).pool);
     window.CGDTracking?.engagement('filter', label, value);
@@ -511,8 +623,10 @@
   }
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
+    // One layer at a time: the card first, then the selection beneath it.
+    if (!drill.hidden) { closeDrill(); return; }
     dismissed = true;
-    if (pinned || S.selected) clearSelection(); else tooltip.hidden = true;
+    if (S.selected) clearSelection(); else tooltip.hidden = true;
   });
   document.getElementById('fullscreenBtn').addEventListener('click', () => {
     const root = document.getElementById('vizRoot');
@@ -526,9 +640,10 @@
   render(mapEl.getBoundingClientRect().width || 960);
   window.CGD_READY = true;   // the QA gate waits for this
   C.observeInlineSize(mapEl, w => render(w));
-  window.TBB_MAP = { state: S, view: () => view(S), render };
+  window.TBB_MAP = { state: S, drill: D, view: () => view(S), universe: () => universe(S),
+                     render, open: selectCountry, close: closeDrill };
 })();
 </script>
-<script src="shared/cgd-embed.js?v=20261115a"></script>
+<script src="shared/cgd-embed.js?v=20261115b"></script>
 </body>
 </html>

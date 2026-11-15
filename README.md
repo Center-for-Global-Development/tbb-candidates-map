@@ -13,17 +13,19 @@ and how the pool changes when you filter to the occupations the UK says it needs
 > Where are the skilled refugees the UK could recruit, and how many of them are
 > in the seven countries chosen for the first phase?
 
-Default: all 144 mapped occupations, all skill levels, no country selected —
+Default: all 144 mapped occupations, every skill level, no country selected —
 186,944 candidates across 26 countries, 32% of them in the seven first-phase
 countries. The point the figure has to let a reader reach is that **the pools
 are mostly somewhere else**, and more so for shortage-list occupations (20%).
+Those numbers are not printed above the map: a reader who wants them reads the
+key and the tooltip, and the blog text carries the headline.
 
 | What the reader does | What it decides |
 |---|---|
-| Skill level | restricts to occupations at one RQF band |
-| Shortage-list occupations only | restricts to occupations the MAC recommended for the Temporary Shortage List. Every one of them is RQF 3–5, so this disables the skill control rather than leaving it live and inert |
-| Occupation | restricts to one occupation. Rebuilt from the two filters above, and reset to "all" when a filter removes the chosen one |
-| Click a country / Find a country | outlines it and pins its numbers |
+| Occupations: All / RQF 6+ / RQF 3–5 / RQF 1–2 / Shortage list | restricts the pool to one band. One control, not a skill filter plus a shortage-list checkbox: every shortage-list occupation is RQF 3–5, so the two could never say anything together that either did not say alone, and the checkbox spent half its life disabled |
+| Occupation | restricts to one occupation. Rebuilt from the band above, and reset to "all" when the band removes the chosen one |
+| Click a country / press Enter on one / Find a country | outlines it and opens its occupation breakdown |
+| The band control inside that breakdown | re-splits that one country's pool. It is the card's own: it starts from the map's band and changes nothing underneath |
 
 Colour is candidate count; a gold ring marks the seven countries named for the
 first phase in the Home Office written statement of 29 October 2026
@@ -92,16 +94,35 @@ not use (the country × occupation grid rather than the long list):
   Jordan).
 * **No country labels.** Six of the nine largest pools sit in one cluster
   (Türkiye, Lebanon, Jordan, Egypt, Iraq, Saudi Arabia) and the top-ranked set
-  changes with every filter, so no label layout survives every state. The
-  ranking is carried as one derived line under the map instead, and every
-  country is reachable by hover, tap, keyboard and the "Find a country" select.
-  This is a deliberate departure from §13.7 of the CGD interactives standard.
+  changes with every filter, so no label layout survives every state. Every
+  country is reachable by hover, tap, keyboard and the "Find a country" select,
+  and clicking one gives its numbers in full. This is a deliberate departure
+  from §13.7 of the CGD interactives standard.
 * **No zoom.** With the frame fitted to the countries that carry data and the
   small ones dilated, nothing on the map is unreachable, so zoom would be a
   control that earns nothing. Departure from §13.5, same reason.
 * **The frame is fitted, not the whole globe.** The catalogue runs from
   Guatemala to Indonesia and from Türkiye to South Africa; the empty Pacific and
   the Arctic cost about a third of the frame.
+* **The country breakdown is an overlay on a laptop and a section on a phone.**
+  At 320px the map is about 150px tall, so a card floated over it has nowhere to
+  go: the shared bottom-sheet rules produced a sheet taller than the area that
+  contained it, with the title and the close button clipped away. Below 620px
+  the same card is laid out under the map instead and the frame grows to fit.
+  Same content, same controls — not a shrunken desktop overlay.
+* **The breakdown ignores the map's occupation filter.** A list of occupations
+  filtered to one occupation is a list of one row.
+* **Antimeridian rings are un-wrapped at build time.** Fiji is stored with its
+  eastern vertices near +180 and its western ones near -180; projected as given,
+  the edge between them was drawn as a straight line across the South Pacific.
+  Russia produced a second one above the frame. The build walks each ring and
+  keeps every step under 180 degrees.
+* **The horizontal extent is the projection's, not the data's.** Taking it from
+  the data made the scale depend on whichever land touched the edge — which was
+  Fiji's wrapped polygon, so fixing the line above silently resized the whole
+  map. The frame the figure shows is now computed by the build from the
+  catalogue's own extent and carried in the payload, so a rebuild cannot leave
+  a hand-tuned view box pointing at the wrong part of a re-scaled world.
 * **Escape holds.** Re-rendering puts a new node under a stationary cursor and
   the browser fires `pointerenter` without the pointer moving, so Escape used to
   hide the tooltip and the next frame brought it back. Dismissal now holds until
@@ -145,11 +166,12 @@ python qa/shots.py       # screenshots at 320/390/700/768/1200px + in-page audit
 without Node, which is why both are here.
 
 **Last verified:** 15 November 2026 — gate clean at 320/768/1200px, state
-exercise clean (27 checks), no console errors, frame grows and shrinks. Also
-checked on the published site
-(<https://center-for-global-development.github.io/tbb-candidates-map/>): every
+exercise clean (48 checks, including the country breakdown and the two-layer
+Escape), control audit clean at 320/390/700/768px, no console errors, frame
+grows and shrinks. Published site checked at
+<https://center-for-global-development.github.io/tbb-candidates-map/>: every
 asset serves, 26 catalogue countries and 7 gold rings render, default total
-186,944, no failed requests and no console errors at 320/768/1200px.
+186,944, no failed requests.
 
 **Not yet done:** the resize and analytics contracts have not been exercised
 against the real cgdev.org parent, only against `preview.html`, which cannot

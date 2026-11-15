@@ -74,20 +74,51 @@ def project(lon, lat):
     return x, y
 
 
+def unwrap(ring):
+    """Undo the antimeridian wrap.
+
+    A country that straddles 180 degrees is stored with its eastern vertices at
+    about +180 and its western ones at about -180. Projected literally, the edge
+    between the two is drawn as a straight sweep right across the map: Fiji
+    produced the horizontal line through the South Pacific, and Russia's
+    Chukotka ring another one above the frame. Walking the ring and keeping each
+    consecutive step under 180 degrees puts the pieces back together; the part
+    that then sits beyond the frame is simply clipped by the viewBox.
+    """
+    out = [ring[0]]
+    for lon, lat in ring[1:]:
+        prev = out[-1][0]
+        while lon - prev > 180:
+            lon -= 360
+        while lon - prev < -180:
+            lon += 360
+        out.append((lon, lat))
+    # Unwrapping can walk a whole ring off the map if it happened to start on
+    # the far side of the join; slide it back to where the land actually is.
+    mid = (min(p[0] for p in out) + max(p[0] for p in out)) / 2
+    shift = -360 if mid > 180 else (360 if mid < -180 else 0)
+    return [(lon + shift, lat) for lon, lat in out] if shift else out
+
+
 geoms = topo["objects"]["countries"]["geometries"]
 feats = []
 for g in geoms:
     gid = str(g.get("id", "")).zfill(3)
     if gid in DROP:
         continue
-    rings = [r for r in polygons(g) if len(r) >= 4]
+    rings = [unwrap(r) for r in polygons(g) if len(r) >= 4]
     if not rings:
         continue
     feats.append({"id": gid, "name": (g.get("properties") or {}).get("name", ""), "rings": rings})
 
 # ---- fit to a 960-wide frame ----------------------------------------------
+# The horizontal extent is the projection's own, a full 360 degrees measured at
+# the equator where Natural Earth 1 is widest — not the extent of whatever land
+# happens to touch the edge. Taking it from the data made the scale depend on a
+# single ring: Fiji's wrapped polygon reached 180 degrees at 16 degrees south,
+# so un-wrapping it silently resized the entire map.
+x0, x1 = project(-180.0, 0.0)[0], project(180.0, 0.0)[0]
 pts = [project(lon, lat) for f in feats for r in f["rings"] for lon, lat in r]
-x0, x1 = min(p[0] for p in pts), max(p[0] for p in pts)
 y0, y1 = min(p[1] for p in pts), max(p[1] for p in pts)
 W, PAD = 960.0, 4.0
 k = (W - 2 * PAD) / (x1 - x0)
@@ -140,7 +171,30 @@ for f in feats:
 missing = sorted(set(CATALOGUE) - set(countries))
 assert not missing, ["no geometry for: " + ", ".join(CATALOGUE[m] for m in missing)]
 
-payload = {"w": round(W, 1), "h": round(H, 1),
+# ---- the frame the figure actually shows -----------------------------------
+# Derived from the catalogue's own extent rather than kept as hand-tuned
+# constants in the figure, so a rebuild can never leave the view box pointing at
+# the wrong part of a re-scaled map. MARGIN is the breathing space around the
+# outermost country, as a share of the box. A tight box round the catalogue is
+# a 2.6:1 letterbox — far too flat to read on a phone and nothing like the
+# proportions the figure was reviewed at — so the aspect is held in a band and
+# the shorter side grown to meet it.
+MARGIN, MIN_ASPECT, MAX_ASPECT = 0.04, 1.55, 1.95
+cpts = [to_px(lon, lat) for f in feats if f["id"] in CATALOGUE
+        for r in f["rings"] for lon, lat in r]
+cx0, cx1 = min(p[0] for p in cpts), max(p[0] for p in cpts)
+cy0, cy1 = min(p[1] for p in cpts), max(p[1] for p in cpts)
+vw = (cx1 - cx0) * (1 + 2 * MARGIN)
+vh = (cy1 - cy0) * (1 + 2 * MARGIN)
+if vw / vh < MIN_ASPECT:
+    vw = vh * MIN_ASPECT
+elif vw / vh > MAX_ASPECT:
+    vh = vw / MAX_ASPECT
+vx = (cx0 + cx1) / 2 - vw / 2
+vy = (cy0 + cy1) / 2 - vh / 2
+VIEW = {"x": round(vx, 1), "y": round(vy, 1), "w": round(vw, 1), "h": round(vh, 1)}
+
+payload = {"w": round(W, 1), "h": round(H, 1), "view": VIEW,
            "context": "".join(context), "countries": countries}
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 with open(OUT, "w", encoding="utf-8") as fh:
@@ -150,6 +204,7 @@ with open(OUT, "w", encoding="utf-8") as fh:
     fh.write("window.TBB_GEO = " + json.dumps(payload, separators=(",", ":")) + ";\n")
 
 print("viewBox 0 0", round(W, 1), round(H, 1))
+print("figure view:", VIEW)
 print("catalogue countries with geometry:", len(countries), "of", len(CATALOGUE))
 print("bytes:", os.path.getsize(OUT))
 small = sorted(((v["a"], CATALOGUE[k]) for k, v in countries.items()))[:8]

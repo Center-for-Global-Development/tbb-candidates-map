@@ -22,16 +22,21 @@ the reader.
 
 | `action_type` | `action_label` | `action_value` | Fired when |
 |---|---|---|---|
-| `filter` | `skill_level` | `ALL`, `RQF 6+`, `RQF 3-5`, `RQF 1-2` | a skill-level button is pressed |
-| `filter` | `shortage_list_only` | `true`, `false` | the shortage-list checkbox changes |
+| `filter` | `occupation_band` | `ALL`, `RQF 6+`, `RQF 3-5`, `RQF 1-2`, `TSL` | a band button is pressed |
 | `filter` | `occupation` | occupation name, or `ALL` | the occupation select changes |
-| `select` | `country` | country name | a country is clicked, or chosen in "Find a country" |
+| `select` | `country` | country name | a country is clicked, chosen in "Find a country", or opened with Enter |
+| `open` | `country_detail` | country name | the country's occupation breakdown opens |
+| `filter` | `country_detail_band` | `ALL`, `RQF 6+`, `RQF 3-5`, `RQF 1-2`, `TSL` | the band is changed inside that breakdown |
 | `download` | `country_counts` | occupation name, or `ALL` | the CSV is downloaded |
+
+`select` / `country` and `open` / `country_detail` always fire together, because
+selecting a country is what opens its breakdown. Both are kept: the first counts
+countries looked at, the second survives if the two are ever separated again.
 
 ## Deliberately not instrumented
 
-Hover, pointer movement, focus, tooltip opening, resize, fullscreen and
-deselection. These are not committed actions; sending them would bury the
-signal and inflate event volume. `action_value` is bounded: at most 144
-occupation names and 26 country names, both drawn from the payload, so
-cardinality cannot grow with traffic.
+Hover, pointer movement, focus, tooltip opening, scrolling the occupation list,
+closing the breakdown, resize, fullscreen and deselection. These are not
+committed actions; sending them would bury the signal and inflate event volume.
+`action_value` is bounded: at most 144 occupation names and 26 country names,
+both drawn from the payload, so cardinality cannot grow with traffic.
