@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Where are the skilled refugees the UK could recruit?</title>
-<link rel="stylesheet" href="shared/cgd-figure.css?v=20261115e">
-<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261115e">
+<link rel="stylesheet" href="shared/cgd-figure.css?v=20261115f">
+<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261115f">
 <style>
   /* Desktop: one control row — the occupation band, then the occupation.
      The band control carries the shortage list as a fifth option rather than a
@@ -50,10 +50,10 @@
   .map{position:relative;background:#F2F7F8;border:1px solid #EDF2F3;border-radius:10px;overflow:hidden}
   .map svg{display:block;width:100%;height:auto;touch-action:manipulation}
   .context{fill:#E9EBEC;stroke:#fff;stroke-width:.5;vector-effect:non-scaling-stroke;pointer-events:none}
-  .country-edge{fill:none;stroke:#7E9499;vector-effect:non-scaling-stroke;pointer-events:none;stroke-linejoin:round}
+  .country-edge{fill:none;stroke:#7E9499;vector-effect:non-scaling-stroke;pointer-events:none;stroke-linejoin:miter;stroke-miterlimit:2}
   /* A darker boundary than the context's white, so the 26 catalogue countries
      read as one set even where the fill is at the pale end of the ramp. */
-  .country{stroke:#7E9499;stroke-width:.7;vector-effect:non-scaling-stroke;cursor:pointer;stroke-linejoin:round;
+  .country{stroke:#7E9499;stroke-width:.7;vector-effect:non-scaling-stroke;cursor:pointer;stroke-linejoin:miter;stroke-miterlimit:2;
     transition:filter .12s ease}
   .country.small{paint-order:stroke fill}
   /* Hover lifts the country off the map with a soft halo rather than changing
@@ -196,10 +196,10 @@
   <div class="tooltip" id="tooltip" hidden></div>
 </div>
 
-<script src="shared/dom.js?v=20261115e"></script>
-<script src="shared/chart-core.js?v=20261115e"></script>
-<script src="data/world-paths.js?v=20261115e"></script>
-<script src="data/tbb-candidates-data.js?v=20261115e"></script>
+<script src="shared/dom.js?v=20261115f"></script>
+<script src="shared/chart-core.js?v=20261115f"></script>
+<script src="data/world-paths.js?v=20261115f"></script>
+<script src="data/tbb-candidates-data.js?v=20261115f"></script>
 <script>
 (() => {
   'use strict';
@@ -285,7 +285,12 @@
   // Jordan (10.0), so the eligible set is the six reviewed, plus Malawi.
   // FLOOR drops a dilation too thin to be worth having, because the stroke
   // replaces the country's darker border rather than adding to it.
-  const NARROW = 9.5, MIN_PX = 11, DILATE_MAX = 6, FLOOR = 1.6;
+  const NARROW = 9.5, MIN_PX = 9.5, DILATE_MAX = 6, FLOOR = 1.6;
+  // Round joins stop a heavy stroke throwing spikes off a sharp corner, but
+  // they also smooth the corner by half the stroke width — which on a 12px
+  // Dominican Republic was most of its coastline. Only a mark that is mostly
+  // stroke needs them.
+  const joinFor = dil => dil >= 3 ? 'round' : 'miter';
 
   // The gold first-phase ring is centred on the boundary, so it eats into the
   // fill from both sides — and the fill is the data. A flat 1.9px is 5-11% of
@@ -293,7 +298,7 @@
   // which took most of its colour with it and left a gold blob. On a narrow
   // country in a small frame the ring thins in proportion, with a floor so it
   // never thins to nothing. Laptop widths are unchanged.
-  const RING_SHARE = 0.2, RING_MAX = 1.9, RING_MIN = 1;
+  const RING_SHARE = 0.10, RING_MAX = 1.9, RING_MIN = 0.6;
   const ringWidth = (g, k) =>
     Math.max(RING_MIN, Math.min(RING_MAX, RING_SHARE * g.m * k));
   function dilationOf(g, k) {
@@ -414,8 +419,22 @@
         // mark the same hairline edge every other country has. Interleaved
         // rather than banked in one layer, so each country's edge draws over
         // the neighbour already laid down and the join stays visible.
+        if (S.selected === c.id) {
+          // Selection traces the country, never a circle. A dilated mark is
+          // mostly stroke, so an outline on its true boundary would be buried
+          // inside it — but a circle throws the shape away entirely, and on
+          // anything but the very smallest that reads as a bullseye dropped on
+          // the map. The outline goes underneath instead, wide enough to clear
+          // the whole mark, so what shows is a dark edge hugging the real
+          // shape.
+          const halo = svgEl('path', { class: 'outline', d: g.d });
+          halo.style.strokeWidth = dil + 1.4 + 2 * 2.2;
+          halo.style.strokeLinejoin = joinFor(dil);
+          fills.append(halo);
+        }
         const edge = svgEl('path', { class: 'country-edge', d: g.d });
         edge.style.strokeWidth = dil + 1.4;
+        edge.style.strokeLinejoin = joinFor(dil);
         fills.append(edge);
         // Zero is a hatch everywhere else on the map, so a dilated country at
         // zero was the one place it read as a solid grey disc — a category of
@@ -423,6 +442,7 @@
         // just as a fill does.
         node.style.stroke = n === 0 ? 'url(#zeroHatch)' : colour;
         node.style.strokeWidth = dil;
+        node.style.strokeLinejoin = joinFor(dil);
         // Focus recolours the stroke, so it needs a width of its own: at the
         // dilation alone a barely-dilated country would show no focus ring.
         node.style.setProperty('--dilf', Math.max(dil, 2.6));
@@ -438,15 +458,9 @@
         ring.style.strokeWidth = ringWidth(g, k);
         rings.append(ring);
       }
-      if (S.selected === c.id) {
-        // A heavily dilated shape is mostly stroke, so an outline traced on its
-        // true boundary would be buried inside it; those get a halo ring clear
-        // of the mark instead. A light dilation leaves the boundary visible,
-        // so it keeps the real outline.
-        outline.append(dil >= 3
-          ? svgEl('circle', { class: 'outline', cx: g.cx, cy: g.cy,
-                              r: Math.max(6, (g.x + dil / k) / 2 + 3 / k) })
-          : svgEl('path', { class: 'outline', d: g.d }));
+      // An undilated country takes the outline on top, on its own boundary.
+      if (S.selected === c.id && !small) {
+        outline.append(svgEl('path', { class: 'outline', d: g.d }));
       }
     });
     svg.append(fills, rings, outline);
@@ -713,6 +727,6 @@
                      render, open: selectCountry, close: closeDrill };
 })();
 </script>
-<script src="shared/cgd-embed.js?v=20261115e"></script>
+<script src="shared/cgd-embed.js?v=20261115f"></script>
 </body>
 </html>

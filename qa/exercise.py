@@ -195,16 +195,28 @@ with sync_playwright() as p:
     print("dilation is sized to the shortfall, not a flat stroke")
     # Regression guard for the blobby Dominican Republic: a flat 6px stroke on
     # every country under an area threshold buried the shapes that did not need
-    # it. The stroke must now shrink as the frame grows, stay off countries big
+    # it. The stroke must shrink as the frame grows, stay off countries big
     # enough to stand alone, and never replace a normal country's border.
     SW = ("id => +getComputedStyle(document.querySelector('#map [data-id=\"' + id + '\"]'))"
           ".strokeWidth.replace('px', '')")
+    JOIN = ("id => getComputedStyle(document.querySelector('#map [data-id=\"' + id + '\"]'))"
+            ".strokeLinejoin")
     BASE = 0.7                                  # the ordinary .country border
-    check("Lebanon is capped at the maximum", page.evaluate(SW, "422"), 6)
-    dr_wide = page.evaluate(SW, "214")
-    check("the Dominican Republic takes far less", 0 < dr_wide < 3, True)
+    # Narrowest first: Trinidad 2.7 units, Lebanon 3.4, Burundi 4.6, Rwanda 4.7,
+    # Dominican Republic 7.0, Malawi 7.8, Costa Rica 8.7. The dilation must fall
+    # as the country widens, and reach nothing before the list runs out.
+    widths = [page.evaluate(SW, i) for i in ("780", "422", "108", "646", "214", "454", "188")]
+    check("dilation falls as the country widens",
+          all(a >= b for a, b in zip(widths, widths[1:])), True)
+    check("the narrowest are dilated hard", widths[0] > 4, True)
+    check("and the widest are left alone", widths[-1], BASE)
+    check("the Dominican Republic is not dilated at all on a laptop",
+          page.evaluate(SW, "214"), BASE)
+    check("so its corners stay square", page.evaluate(JOIN, "214"), "miter")
     check("Jordan keeps its own border", page.evaluate(SW, "400"), BASE)
     check("Kenya keeps its own border", page.evaluate(SW, "404"), BASE)
+    check("a mark that is mostly stroke still rounds its joins",
+          page.evaluate(JOIN, "422"), "round")
     check("every dilated country carries its own edge",
           page.evaluate("() => { const n = document.querySelectorAll('#map .country.small').length;"
                         " return n > 0 && n === document.querySelectorAll('#map .country-edge').length; }"), True)
@@ -215,23 +227,33 @@ with sync_playwright() as p:
                         " && parseFloat(getComputedStyle(e).strokeWidth)"
                         "    > parseFloat(getComputedStyle(c).strokeWidth); })"), True)
     page.select_option("#countrySelect", "214")
-    check("a lightly dilated country keeps its true outline",
-          page.evaluate("() => !!document.querySelector('#map path.outline')"), True)
+    check("an undilated country takes the plain outline",
+          page.evaluate("() => { const e = document.querySelector('#map .outline');"
+                        " return e.tagName + ':' + getComputedStyle(e).strokeWidth; }"), "path:2.2px")
     page.set_viewport_size({"width": 360, "height": 900})
     page.wait_for_timeout(300)
-    check("and is dilated hard once the frame is small",
+    check("the Dominican Republic is dilated hard once the frame is small",
           page.evaluate(SW, "214"), 6)
     # Eligibility is the shorter side, not area. Malawi's area is twice Costa
     # Rica's, but it is narrower than the Dominican Republic, and an area gate
     # left it a 3px thread on a phone while everything round it was dilated.
     check("narrow Malawi is dilated despite its area",
-          page.evaluate(SW, "454"), 6)
-    check("where the outline becomes a halo",
-          page.evaluate("() => !!document.querySelector('#map circle.outline')"), True)
+          page.evaluate(SW, "454") > 4, True)
+    # The selection mark follows the country at every size. A circle centred on
+    # the shape threw the geometry away and read as a bullseye dropped on the
+    # map; a dilated country gets a wider outline underneath instead.
+    check("a dilated country is never outlined with a circle",
+          page.evaluate("() => !document.querySelector('#map circle.outline')"), True)
+    check("its outline still traces the country, and clears the mark",
+          page.evaluate("() => { const e = document.querySelector('#map .outline');"
+                        " const c = document.querySelector('#map [data-id=\"214\"]');"
+                        " return e.tagName === 'path' && e.getAttribute('d') === c.getAttribute('d')"
+                        " && parseFloat(getComputedStyle(e).strokeWidth)"
+                        "    > parseFloat(getComputedStyle(c).strokeWidth); }"), True)
     page.set_viewport_size({"width": 1100, "height": 900})
     page.wait_for_timeout(300)
-    check("back to the lighter stroke when the frame grows",
-          page.evaluate(SW, "214"), dr_wide)
+    check("back to the plain outline when the frame grows",
+          page.evaluate("() => getComputedStyle(document.querySelector('#map .outline')).strokeWidth"), "2.2px")
     page.select_option("#countrySelect", "")
     page.keyboard.press("Escape")
 
@@ -249,9 +271,9 @@ with sync_playwright() as p:
           page.evaluate("() => [...document.querySelectorAll('#map .country.small')]"
                         ".every(c => !c.style.stroke || c.style.stroke.includes('zeroHatch')"
                         " || c.style.stroke === c.style.fill)"), True)
-    ring_wide = page.evaluate("() => +getComputedStyle(document.querySelector('#map .ho-ring'))"
-                              ".strokeWidth.replace('px', '')")
-    check("the gold ring is at full width on a laptop", ring_wide, 1.9)
+    check("the gold ring is at full width on a laptop",
+          page.evaluate("() => Math.max(...[...document.querySelectorAll('#map .ho-ring')]"
+                        ".map(e => parseFloat(getComputedStyle(e).strokeWidth)))"), 1.9)
     page.set_viewport_size({"width": 360, "height": 900})
     page.wait_for_timeout(300)
     check("the hatch is still 5px on a phone", page.evaluate(PITCH), 5)
@@ -260,7 +282,7 @@ with sync_playwright() as p:
                         ".map(e => parseFloat(getComputedStyle(e).strokeWidth))) < 1.9"), True)
     check("but never thins away to nothing",
           page.evaluate("() => Math.min(...[...document.querySelectorAll('#map .ho-ring')]"
-                        ".map(e => parseFloat(getComputedStyle(e).strokeWidth))) >= 1"), True)
+                        ".map(e => parseFloat(getComputedStyle(e).strokeWidth))) >= 0.6"), True)
     page.set_viewport_size({"width": 1100, "height": 900})
     page.wait_for_timeout(300)
     page.select_option("#occSelect", "ALL")

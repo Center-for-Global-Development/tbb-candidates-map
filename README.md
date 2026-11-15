@@ -98,7 +98,9 @@ not use (the country × occupation grid rather than the long list):
   each country's shorter side; the figure measures it against a minimum on-screen
   mark at the current frame width and strokes only the difference, so the
   dilation is heavy on a phone, light on a laptop, and absent once the shape
-  stands on its own. A dilation thinner than the ordinary border is dropped, and
+  stands on its own — at 960px and above only Trinidad, Lebanon, Rwanda and
+  Burundi are dilated at all, and the Dominican Republic renders exactly like
+  any other country. A dilation thinner than the ordinary border is dropped, and
   a country whose boundary is still visible keeps its true selection outline
   instead of the halo ring.
 * **Eligibility is the shorter side, not the area.** Area mis-sorts a country
@@ -159,18 +161,35 @@ not use (the country × occupation grid rather than the long list):
 * **The gold ring thins on a small country in a small frame.** It is centred on
   the boundary, so it eats into the fill from both sides — and the fill is the
   data. A flat 1.9px is 5–11% of a country's narrow side on a laptop but a third
-  of Bangladesh's at 320px. The ring is now a share of the country's narrow side,
-  capped at 1.9px and floored at 1px, which leaves laptop widths untouched.
-  Bangladesh and Uganda are still mostly gold at 320px: at 5×7px their perimeter
-  is most of their area, and no stroke width fixes that. Drawing the ring outside
-  the shape instead would fix it, but a first-phase country ringed by other
-  catalogue countries — Uganda — then loses its ring to its neighbours' fills,
-  so it is not a trade worth making.
+  of Bangladesh's at 320px. The ring is now a tenth of the country's narrow side,
+  capped at 1.9px and floored at 0.6px, so laptop widths are effectively
+  unchanged (1.8–1.9px) and a phone gets a fine line. Measured gold coverage at
+  320px: Uganda 70% → 30%, Kenya 55% → 26%, Malaysia 49% → 23%, Egypt 44% → 28%.
+* **Bangladesh is the exception, and the ring thinning cannot fix it.** It stays
+  about 85% gold at 320px. The gold is not its own: hiding Bangladesh's ring
+  moves the figure to 81%, while hiding *India's* moves it to 40%. Bangladesh is
+  a 5×7px country almost enclosed by another first-phase country, so what
+  surrounds it is India's ring. The fix would be to stop drawing a ring on a
+  border shared by two first-phase countries — ordering the layers context →
+  other catalogue fills → rings → first-phase fills does exactly that, and
+  unlike drawing every ring outside, it does not cost Uganda its ring to
+  Tanzania and Rwanda. Not done: it moves the ring off the boundary at every
+  width, which is a change to an approved look rather than a defect fix.
 * **The zero hatch keeps a constant 5px pitch.** It is defined in frame units, so
   it scaled with the viewBox: a 6.5px pitch on a laptop became 1.9px with a
   sub-pixel line at 320px, which aliases into flat grey and stops reading as a
   hatch. Dividing by the scale holds it, and keeps it in step with the legend's
   own swatch.
+* **Selection traces the country; there is no circle.** A dilated mark is
+  mostly stroke, so an outline on its true boundary is buried inside it — but a
+  circle centred on the shape throws the geometry away, and on anything but the
+  very smallest it reads as a bullseye dropped on the map. A dilated country now
+  gets the same path underneath the mark, wide enough to clear it, so what shows
+  is a dark edge hugging the real shape. An undilated country is unchanged.
+* **Joins are mitred unless the mark is mostly stroke.** A round join smooths
+  every corner by half the stroke width, which on a lightly dilated Dominican
+  Republic was most of its coastline. Round joins are kept only above a 3px
+  dilation, where they stop a heavy stroke throwing spikes off a sharp corner.
 * **A dilated country at zero is hatched, not a grey disc.** Zero is a hatch
   everywhere else on the map, so the small countries were the one place it read
   as a category of its own, sitting next to hatched neighbours. A stroke takes a
@@ -220,9 +239,9 @@ without Node, which is why both are here.
 **Last verified:** 15 November 2026 — gate clean at 320/768/1200px, legend
 checked in all 149 states (every band and every occupation: never fewer than
 three classes, no duplicate class labels), state
-exercise clean (70 checks, including the country breakdown, its tooltips, the
-two-layer Escape, the size-aware dilation and the hatch and ring scaling),
-control audit clean at
+exercise clean (75 checks, including the country breakdown, its tooltips, the
+two-layer Escape, the size-aware dilation, the shaped selection outline and the
+hatch and ring scaling), control audit clean at
 320/390/700/768px, no console errors, frame
 grows and shrinks. Published site checked at
 <https://center-for-global-development.github.io/tbb-candidates-map/>: every
