@@ -128,9 +128,21 @@ with sync_playwright() as p:
     check("largest first", page.evaluate(SORTED), True)
     check("focus moved into the card", page.evaluate("() => document.activeElement.id"), "drillClose")
 
+    print("row tooltips carry the skill level, and only where it varies")
+    check("a tip on every row under All",
+          page.evaluate("() => [...document.querySelectorAll('.occ-row')]"
+                        ".every(r => /^(RQF [0-9+–-]+|Ineligible)$/.test(r.getAttribute('data-tip') || ''))"), True)
+    page.hover(".occ-row")
+    page.wait_for_timeout(250)
+    check("it shows", page.evaluate("() => { const t = document.querySelector('.cgd-quicktip');"
+                                    " return !!t && !t.hidden; }"), True)
+
     print("the card's band control is its own")
     page.click('#occBand [data-band="TSL"]')
     check("rows", page.evaluate(DROWS), expected_country("818", "TSL")[1])
+    check("no tips once the band is fixed",
+          page.evaluate("() => [...document.querySelectorAll('.occ-row')]"
+                        ".every(r => !r.hasAttribute('data-tip'))"), True)
     check("map underneath unchanged", page.evaluate(TOTAL), expected()[0])
     check("map band unchanged", page.evaluate(BAND), "ALL")
 

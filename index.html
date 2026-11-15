@@ -52,8 +52,17 @@
   .context{fill:#E9EBEC;stroke:#fff;stroke-width:.5;vector-effect:non-scaling-stroke;pointer-events:none}
   /* A darker boundary than the context's white, so the 26 catalogue countries
      read as one set even where the fill is at the pale end of the ramp. */
-  .country{stroke:#7E9499;stroke-width:.7;vector-effect:non-scaling-stroke;cursor:pointer;stroke-linejoin:round}
+  .country{stroke:#7E9499;stroke-width:.7;vector-effect:non-scaling-stroke;cursor:pointer;stroke-linejoin:round;
+    transition:filter .12s ease}
   .country.small{paint-order:stroke fill}
+  /* Hover lifts the country off the map with a soft halo rather than changing
+     its colour. The fill is the data and the gold ring means "first phase", so
+     neither can be borrowed to say "your pointer is here"; a shadow belongs to
+     no scale and reads the same over the palest class and the darkest. It is
+     also why the countries outside the catalogue do not respond — they take no
+     pointer events, so the halo doubles as "this one can be opened". */
+  .map svg .country:hover{filter:drop-shadow(0 0 2.5px rgba(11,76,91,.62))}
+  @media (prefers-reduced-motion:reduce){.country{transition:none}}
   /* The gold ring marks the seven countries of the first phase. It is drawn as
      its own layer above every fill so a neighbour's fill cannot paint over it,
      and it is never used for hover or selection — those are teal-black, so the
@@ -575,11 +584,10 @@
         element('span', { className: 'vl', text: fmt(n) }),
         element('span', { className: 'track' }, [bar])
       ]);
-      row.setAttribute('data-tip',
-        `${o.n} — ${fmt(n)} of ${c.name}’s ${fmt(shown)} shown `
-        + `(${pct(shown ? n / shown : 0)}). ${RQF_LABEL[o.r] || o.r}; `
-        + (o.t === 'Yes' ? 'on the shortage list' : 'not on the shortage list')
-        + `. SOC ${o.soc} ${o.st}.`);
+      // The row already carries the occupation and the count, and under any
+      // band but "All" every row shares that band — so the only thing left for
+      // a tooltip to add is the skill level of a mixed list.
+      if (D.band === 'ALL') row.setAttribute('data-tip', RQF_LABEL[o.r] || o.r);
       return row;
     }));
     drillList.scrollTop = 0;

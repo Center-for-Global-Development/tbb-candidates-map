@@ -123,6 +123,15 @@ not use (the country × occupation grid rather than the long list):
   map. The frame the figure shows is now computed by the build from the
   catalogue's own extent and carried in the payload, so a rebuild cannot leave
   a hand-tuned view box pointing at the wrong part of a re-scaled world.
+* **Hover is a halo, not a colour change.** The fill is the data and the gold
+  ring means "first phase", so neither can be borrowed to say "your pointer is
+  here". A soft shadow belongs to no scale and reads the same over the palest
+  class and the darkest. Countries outside the catalogue take no pointer events
+  and so stay still, which makes the halo double as "this one opens".
+* **The occupation rows carry one tooltip line, and only under "All".** The row
+  already shows the occupation and the count; under any single band every row
+  shares that band. What is left worth saying is the skill level of a mixed
+  list, so that is all the tooltip says.
 * **Escape holds.** Re-rendering puts a new node under a stationary cursor and
   the browser fires `pointerenter` without the pointer moving, so Escape used to
   hide the tooltip and the next frame brought it back. Dismissal now holds until
@@ -166,8 +175,8 @@ python qa/shots.py       # screenshots at 320/390/700/768/1200px + in-page audit
 without Node, which is why both are here.
 
 **Last verified:** 15 November 2026 — gate clean at 320/768/1200px, state
-exercise clean (48 checks, including the country breakdown and the two-layer
-Escape), control audit clean at 320/390/700/768px, no console errors, frame
+exercise clean (52 checks, including the country breakdown, its tooltips and
+the two-layer Escape), control audit clean at 320/390/700/768px, no console errors, frame
 grows and shrinks. Published site checked at
 <https://center-for-global-development.github.io/tbb-candidates-map/>: every
 asset serves, 26 catalogue countries and 7 gold rings render, default total
