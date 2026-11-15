@@ -121,7 +121,7 @@ published CGD layer in `shared/`, which must not be forked or edited here:
 ## Embedding
 
 ```html
-<iframe src="https://<org>.github.io/tbb-candidates-map/"
+<iframe src="https://center-for-global-development.github.io/tbb-candidates-map/"
         title="Map: Talent Beyond Boundaries candidates by country and occupation"
         style="width:100%;border:0" loading="lazy"></iframe>
 ```
