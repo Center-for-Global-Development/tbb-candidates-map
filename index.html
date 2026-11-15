@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Where are the skilled refugees the UK could recruit?</title>
-<link rel="stylesheet" href="shared/cgd-figure.css?v=20261115d">
-<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261115d">
+<link rel="stylesheet" href="shared/cgd-figure.css?v=20261115e">
+<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261115e">
 <style>
   /* Desktop: one control row — the occupation band, then the occupation.
      The band control carries the shortage list as a fifth option rather than a
@@ -196,10 +196,10 @@
   <div class="tooltip" id="tooltip" hidden></div>
 </div>
 
-<script src="shared/dom.js?v=20261115d"></script>
-<script src="shared/chart-core.js?v=20261115d"></script>
-<script src="data/world-paths.js?v=20261115d"></script>
-<script src="data/tbb-candidates-data.js?v=20261115d"></script>
+<script src="shared/dom.js?v=20261115e"></script>
+<script src="shared/chart-core.js?v=20261115e"></script>
+<script src="data/world-paths.js?v=20261115e"></script>
+<script src="data/tbb-candidates-data.js?v=20261115e"></script>
 <script>
 (() => {
   'use strict';
@@ -286,6 +286,16 @@
   // FLOOR drops a dilation too thin to be worth having, because the stroke
   // replaces the country's darker border rather than adding to it.
   const NARROW = 9.5, MIN_PX = 11, DILATE_MAX = 6, FLOOR = 1.6;
+
+  // The gold first-phase ring is centred on the boundary, so it eats into the
+  // fill from both sides — and the fill is the data. A flat 1.9px is 5-11% of
+  // a country's narrow side on a laptop but a third of Bangladesh's at 320px,
+  // which took most of its colour with it and left a gold blob. On a narrow
+  // country in a small frame the ring thins in proportion, with a floor so it
+  // never thins to nothing. Laptop widths are unchanged.
+  const RING_SHARE = 0.2, RING_MAX = 1.9, RING_MIN = 1;
+  const ringWidth = (g, k) =>
+    Math.max(RING_MIN, Math.min(RING_MAX, RING_SHARE * g.m * k));
   function dilationOf(g, k) {
     if (g.m >= NARROW) return 0;
     const d = Math.min(DILATE_MAX, MIN_PX - g.m * k);
@@ -366,6 +376,7 @@
     lastWidth = width || lastWidth;
     const v = view(S);
     const ths = thresholds(v.totals);
+    const k = lastWidth / VIEW.w;          // frame units -> css px at this width
 
     const svg = svgEl('svg', {
       viewBox: `${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`,
@@ -374,17 +385,22 @@
       'aria-label': summaryText(v)
     });
 
+    // The hatch is defined in frame units, so left alone it scales with the
+    // viewBox: a 6.5px pitch on a laptop became 1.9px with a sub-pixel line at
+    // 320px, which aliases into flat grey and stops reading as a hatch at all.
+    // Dividing by the scale holds the pitch at a constant 5 css px, which also
+    // keeps it in step with the legend's own swatch.
+    const hp = 5 / k, hl = 1.6 / k;
     const defs = svgEl('defs');
-    const pat = svgEl('pattern', { id: 'zeroHatch', width: 5, height: 5, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' });
-    pat.append(svgEl('rect', { width: 5, height: 5, fill: '#F4F6F7' }));
-    pat.append(svgEl('line', { x1: 0, y1: 0, x2: 0, y2: 5, stroke: '#B9C3C6', 'stroke-width': 1.6 }));
+    const pat = svgEl('pattern', { id: 'zeroHatch', width: hp, height: hp, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' });
+    pat.append(svgEl('rect', { width: hp, height: hp, fill: '#F4F6F7' }));
+    pat.append(svgEl('line', { x1: 0, y1: 0, x2: 0, y2: hp, stroke: '#B9C3C6', 'stroke-width': hl }));
     defs.append(pat);
     svg.append(defs);
 
     svg.append(svgEl('path', { class: 'context', d: GEO.context }));
 
     const fills = svgEl('g'), rings = svgEl('g'), outline = svgEl('g');
-    const k = lastWidth / VIEW.w;          // frame units -> css px at this width
     COUNTRIES.forEach((c, i) => {
       const g = GEO.countries[c.id], n = v.totals[i], colour = colourOf(n, ths);
       const dil = dilationOf(g, k), small = dil > 0;
@@ -401,7 +417,11 @@
         const edge = svgEl('path', { class: 'country-edge', d: g.d });
         edge.style.strokeWidth = dil + 1.4;
         fills.append(edge);
-        node.style.stroke = n === 0 ? '#C2CBCD' : colour;
+        // Zero is a hatch everywhere else on the map, so a dilated country at
+        // zero was the one place it read as a solid grey disc — a category of
+        // its own, next to hatched neighbours. A stroke takes a pattern paint
+        // just as a fill does.
+        node.style.stroke = n === 0 ? 'url(#zeroHatch)' : colour;
         node.style.strokeWidth = dil;
         // Focus recolours the stroke, so it needs a width of its own: at the
         // dilation alone a barely-dilated country would show no focus ring.
@@ -413,7 +433,11 @@
       node.setAttribute('aria-label', `${c.name}: ${fmt(n)} ${n === 1 ? 'candidate' : 'candidates'}${c.ho ? `, one of the ${HO_WORD} countries chosen for the first phase` : ''}`);
       attach(node, c, i, v);
       fills.append(node);
-      if (c.ho) rings.append(svgEl('path', { class: 'ho-ring', d: g.d }));
+      if (c.ho) {
+        const ring = svgEl('path', { class: 'ho-ring', d: g.d });
+        ring.style.strokeWidth = ringWidth(g, k);
+        rings.append(ring);
+      }
       if (S.selected === c.id) {
         // A heavily dilated shape is mostly stroke, so an outline traced on its
         // true boundary would be buried inside it; those get a halo ring clear
@@ -689,6 +713,6 @@
                      render, open: selectCountry, close: closeDrill };
 })();
 </script>
-<script src="shared/cgd-embed.js?v=20261115d"></script>
+<script src="shared/cgd-embed.js?v=20261115e"></script>
 </body>
 </html>

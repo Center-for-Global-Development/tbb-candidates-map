@@ -235,6 +235,36 @@ with sync_playwright() as p:
     page.select_option("#countrySelect", "")
     page.keyboard.press("Escape")
 
+    print("the hatch, the gold ring and the zero mark hold their size")
+    # All three are defined in frame units, so left alone they scale with the
+    # viewBox. The hatch became a sub-pixel line at 320px, and the gold ring
+    # took a third of Bangladesh's narrow side and most of its colour with it.
+    PITCH = ("() => { const p = document.querySelector('#zeroHatch');"
+             " const svg = document.querySelector('#map svg');"
+             " const k = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;"
+             " return Math.round(parseFloat(p.getAttribute('width')) * k * 10) / 10; }")
+    page.select_option("#occSelect", "Meteorologist")
+    check("the hatch is 5px on a laptop", page.evaluate(PITCH), 5)
+    check("a country at zero is hatched, dilated or not",
+          page.evaluate("() => [...document.querySelectorAll('#map .country.small')]"
+                        ".every(c => !c.style.stroke || c.style.stroke.includes('zeroHatch')"
+                        " || c.style.stroke === c.style.fill)"), True)
+    ring_wide = page.evaluate("() => +getComputedStyle(document.querySelector('#map .ho-ring'))"
+                              ".strokeWidth.replace('px', '')")
+    check("the gold ring is at full width on a laptop", ring_wide, 1.9)
+    page.set_viewport_size({"width": 360, "height": 900})
+    page.wait_for_timeout(300)
+    check("the hatch is still 5px on a phone", page.evaluate(PITCH), 5)
+    check("the ring thins on a narrow country in a small frame",
+          page.evaluate("() => Math.min(...[...document.querySelectorAll('#map .ho-ring')]"
+                        ".map(e => parseFloat(getComputedStyle(e).strokeWidth))) < 1.9"), True)
+    check("but never thins away to nothing",
+          page.evaluate("() => Math.min(...[...document.querySelectorAll('#map .ho-ring')]"
+                        ".map(e => parseFloat(getComputedStyle(e).strokeWidth))) >= 1"), True)
+    page.set_viewport_size({"width": 1100, "height": 900})
+    page.wait_for_timeout(300)
+    page.select_option("#occSelect", "ALL")
+
     print("keyboard route")
     page.evaluate('() => document.querySelector(\'#map [data-id="050"]\').focus()')
     check("focus reaches a country", page.evaluate(ACTIVE_ID), "050")

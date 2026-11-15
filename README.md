@@ -156,6 +156,25 @@ not use (the country × occupation grid rather than the long list):
   already shows the occupation and the count; under any single band every row
   shares that band. What is left worth saying is the skill level of a mixed
   list, so that is all the tooltip says.
+* **The gold ring thins on a small country in a small frame.** It is centred on
+  the boundary, so it eats into the fill from both sides — and the fill is the
+  data. A flat 1.9px is 5–11% of a country's narrow side on a laptop but a third
+  of Bangladesh's at 320px. The ring is now a share of the country's narrow side,
+  capped at 1.9px and floored at 1px, which leaves laptop widths untouched.
+  Bangladesh and Uganda are still mostly gold at 320px: at 5×7px their perimeter
+  is most of their area, and no stroke width fixes that. Drawing the ring outside
+  the shape instead would fix it, but a first-phase country ringed by other
+  catalogue countries — Uganda — then loses its ring to its neighbours' fills,
+  so it is not a trade worth making.
+* **The zero hatch keeps a constant 5px pitch.** It is defined in frame units, so
+  it scaled with the viewBox: a 6.5px pitch on a laptop became 1.9px with a
+  sub-pixel line at 320px, which aliases into flat grey and stops reading as a
+  hatch. Dividing by the scale holds it, and keeps it in step with the legend's
+  own swatch.
+* **A dilated country at zero is hatched, not a grey disc.** Zero is a hatch
+  everywhere else on the map, so the small countries were the one place it read
+  as a category of its own, sitting next to hatched neighbours. A stroke takes a
+  pattern paint just as a fill does.
 * **Escape holds.** Re-rendering puts a new node under a stationary cursor and
   the browser fires `pointerenter` without the pointer moving, so Escape used to
   hide the tooltip and the next frame brought it back. Dismissal now holds until
@@ -198,9 +217,12 @@ python qa/shots.py       # screenshots at 320/390/700/768/1200px + in-page audit
 (`.github/workflows/verify.yml`); `qa/verify.py` is the same gate for a machine
 without Node, which is why both are here.
 
-**Last verified:** 15 November 2026 — gate clean at 320/768/1200px, state
-exercise clean (64 checks, including the country breakdown, its tooltips, the
-two-layer Escape and the size-aware dilation), control audit clean at
+**Last verified:** 15 November 2026 — gate clean at 320/768/1200px, legend
+checked in all 149 states (every band and every occupation: never fewer than
+three classes, no duplicate class labels), state
+exercise clean (70 checks, including the country breakdown, its tooltips, the
+two-layer Escape, the size-aware dilation and the hatch and ring scaling),
+control audit clean at
 320/390/700/768px, no console errors, frame
 grows and shrinks. Published site checked at
 <https://center-for-global-development.github.io/tbb-candidates-map/>: every
