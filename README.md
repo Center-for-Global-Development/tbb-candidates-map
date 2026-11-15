@@ -143,7 +143,11 @@ python qa/shots.py       # screenshots at 320/390/700/768/1200px + in-page audit
 without Node, which is why both are here.
 
 **Last verified:** 15 November 2026 — gate clean at 320/768/1200px, state
-exercise clean (27 checks), no console errors, frame grows and shrinks.
+exercise clean (27 checks), no console errors, frame grows and shrinks. Also
+checked on the published site
+(<https://center-for-global-development.github.io/tbb-candidates-map/>): every
+asset serves, 26 catalogue countries and 7 gold rings render, default total
+186,944, no failed requests and no console errors at 320/768/1200px.
 
 **Not yet done:** the resize and analytics contracts have not been exercised
 against the real cgdev.org parent, only against `preview.html`, which cannot
