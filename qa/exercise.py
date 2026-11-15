@@ -192,6 +192,35 @@ with sync_playwright() as p:
     check("total", page.evaluate(TOTAL), expected("RQF 3-5")[0])
     page.click('[data-band="ALL"]')
 
+    print("dilation is sized to the shortfall, not a flat stroke")
+    # Regression guard for the blobby Dominican Republic: a flat 6px stroke on
+    # every country under an area threshold buried the shapes that did not need
+    # it. The stroke must now shrink as the frame grows, stay off countries big
+    # enough to stand alone, and never replace a normal country's border.
+    SW = ("id => +getComputedStyle(document.querySelector('#map [data-id=\"' + id + '\"]'))"
+          ".strokeWidth.replace('px', '')")
+    BASE = 0.7                                  # the ordinary .country border
+    check("Lebanon is capped at the maximum", page.evaluate(SW, "422"), 6)
+    dr_wide = page.evaluate(SW, "214")
+    check("the Dominican Republic takes far less", 0 < dr_wide < 3, True)
+    check("Jordan keeps its own border", page.evaluate(SW, "400"), BASE)
+    check("Malawi keeps its own border", page.evaluate(SW, "454"), BASE)
+    page.select_option("#countrySelect", "214")
+    check("a lightly dilated country keeps its true outline",
+          page.evaluate("() => !!document.querySelector('#map path.outline')"), True)
+    page.set_viewport_size({"width": 360, "height": 900})
+    page.wait_for_timeout(300)
+    check("and is dilated hard once the frame is small",
+          page.evaluate(SW, "214"), 6)
+    check("where the outline becomes a halo",
+          page.evaluate("() => !!document.querySelector('#map circle.outline')"), True)
+    page.set_viewport_size({"width": 1100, "height": 900})
+    page.wait_for_timeout(300)
+    check("back to the lighter stroke when the frame grows",
+          page.evaluate(SW, "214"), dr_wide)
+    page.select_option("#countrySelect", "")
+    page.keyboard.press("Escape")
+
     print("keyboard route")
     page.evaluate('() => document.querySelector(\'#map [data-id="050"]\').focus()')
     check("focus reaches a country", page.evaluate(ACTIVE_ID), "050")

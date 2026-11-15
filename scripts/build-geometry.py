@@ -163,8 +163,15 @@ for f in feats:
         cx = sum(p[0] for p in bpx) / len(bpx)
         cy = sum(p[1] for p in bpx) / len(bpx)
         area = ring_area_px(big)
+        # The shorter side of the main landmass, in frame units. The figure
+        # dilates a country only as far as this falls short of a readable mark,
+        # so area alone is not enough: the Dominican Republic has five times
+        # Lebanon's area and needs a fraction of the stroke.
+        bw = max(p[0] for p in bpx) - min(p[0] for p in bpx)
+        bh = max(p[1] for p in bpx) - min(p[1] for p in bpx)
         countries[f["id"]] = {"d": d, "cx": round(cx, 1), "cy": round(cy, 1),
-                              "a": round(area, 1)}
+                              "a": round(area, 1), "m": round(min(bw, bh), 1),
+                              "x": round(max(bw, bh), 1)}
     else:
         context.append(d)
 
@@ -207,5 +214,5 @@ print("viewBox 0 0", round(W, 1), round(H, 1))
 print("figure view:", VIEW)
 print("catalogue countries with geometry:", len(countries), "of", len(CATALOGUE))
 print("bytes:", os.path.getsize(OUT))
-small = sorted(((v["a"], CATALOGUE[k]) for k, v in countries.items()))[:8]
-print("smallest projected areas (px^2 at 960 wide):", [(n, a) for a, n in small])
+small = sorted(((v["m"], CATALOGUE[k]) for k, v in countries.items()))[:8]
+print("narrowest countries (shorter side, units at 960 wide):", [(n, m) for m, n in small])

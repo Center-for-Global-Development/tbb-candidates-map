@@ -87,11 +87,21 @@ not use (the country × occupation grid rather than the long list):
 * **The palest class is a clear colour, not an off-grey.** At `#E4F0F1` the
   smallest pools were indistinguishable from countries not in the catalogue at
   all. Catalogue countries also carry a darker boundary than the context.
-* **Small countries are dilated, not replaced by symbols.** Lebanon holds the
-  second largest pool and is one of the smallest countries on the map. A stroke
-  in the country's own fill colour keeps the real shape and reaches a usable
-  size; markers at that density collided (Rwanda with Burundi, Lebanon with
-  Jordan).
+* **Small countries are dilated, not replaced by symbols — and only as far as
+  they need.** Lebanon holds the second largest pool and is one of the smallest
+  countries on the map. A stroke in the country's own fill colour keeps the real
+  shape and reaches a usable size; markers at that density collided (Rwanda with
+  Burundi, Lebanon with Jordan). The stroke is sized to the shortfall rather than
+  flat: at 6px for everything under an area threshold, the Dominican Republic —
+  nearly five times Lebanon's area, and perfectly legible unaided on a laptop —
+  became a featureless lump that swallowed the border with Haiti. The build emits
+  each country's shorter side; the figure measures it against a minimum on-screen
+  mark at the current frame width and strokes only the difference, so the
+  dilation is heavy on a phone, light on a laptop, and absent once the shape
+  stands on its own. The six eligible countries are unchanged. A dilation thinner
+  than the ordinary border is dropped, because the stroke replaces that border
+  rather than adding to it, and a country whose boundary is still visible keeps
+  its true selection outline instead of the halo ring.
 * **No country labels.** Six of the nine largest pools sit in one cluster
   (Türkiye, Lebanon, Jordan, Egypt, Iraq, Saudi Arabia) and the top-ranked set
   changes with every filter, so no label layout survives every state. Every
@@ -175,8 +185,9 @@ python qa/shots.py       # screenshots at 320/390/700/768/1200px + in-page audit
 without Node, which is why both are here.
 
 **Last verified:** 15 November 2026 — gate clean at 320/768/1200px, state
-exercise clean (52 checks, including the country breakdown, its tooltips and
-the two-layer Escape), control audit clean at 320/390/700/768px, no console errors, frame
+exercise clean (60 checks, including the country breakdown, its tooltips, the
+two-layer Escape and the size-aware dilation), control audit clean at
+320/390/700/768px, no console errors, frame
 grows and shrinks. Published site checked at
 <https://center-for-global-development.github.io/tbb-candidates-map/>: every
 asset serves, 26 catalogue countries and 7 gold rings render, default total
