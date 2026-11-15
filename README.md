@@ -4,7 +4,9 @@ One interactive figure for the CGD blog post on the UK's Displaced Talent Visa:
 where the skilled refugees in Talent Beyond Boundaries' talent catalogue are,
 and how the pool changes when you filter to the occupations the UK says it needs.
 
-**Figure:** [`index.html`](index.html) · **Review page:** [`preview.html`](preview.html)
+**Live figure:** <https://center-for-global-development.github.io/tbb-candidates-map/>
+· **Live review page:** <https://center-for-global-development.github.io/tbb-candidates-map/preview.html>
+· local: [`index.html`](index.html), [`preview.html`](preview.html)
 
 ## The question, and the default state
 
