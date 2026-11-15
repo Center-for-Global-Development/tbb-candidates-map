@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Where are the skilled refugees the UK could recruit?</title>
-<link rel="stylesheet" href="shared/cgd-figure.css?v=20261115c">
-<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261115c">
+<link rel="stylesheet" href="shared/cgd-figure.css?v=20261115d">
+<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261115d">
 <style>
   /* Desktop: one control row — the occupation band, then the occupation.
      The band control carries the shortage list as a fifth option rather than a
@@ -50,6 +50,7 @@
   .map{position:relative;background:#F2F7F8;border:1px solid #EDF2F3;border-radius:10px;overflow:hidden}
   .map svg{display:block;width:100%;height:auto;touch-action:manipulation}
   .context{fill:#E9EBEC;stroke:#fff;stroke-width:.5;vector-effect:non-scaling-stroke;pointer-events:none}
+  .country-edge{fill:none;stroke:#7E9499;vector-effect:non-scaling-stroke;pointer-events:none;stroke-linejoin:round}
   /* A darker boundary than the context's white, so the 26 catalogue countries
      read as one set even where the fill is at the pale end of the ramp. */
   .country{stroke:#7E9499;stroke-width:.7;vector-effect:non-scaling-stroke;cursor:pointer;stroke-linejoin:round;
@@ -195,10 +196,10 @@
   <div class="tooltip" id="tooltip" hidden></div>
 </div>
 
-<script src="shared/dom.js?v=20261115c"></script>
-<script src="shared/chart-core.js?v=20261115c"></script>
-<script src="data/world-paths.js?v=20261115c"></script>
-<script src="data/tbb-candidates-data.js?v=20261115c"></script>
+<script src="shared/dom.js?v=20261115d"></script>
+<script src="shared/chart-core.js?v=20261115d"></script>
+<script src="data/world-paths.js?v=20261115d"></script>
+<script src="data/tbb-candidates-data.js?v=20261115d"></script>
 <script>
 (() => {
   'use strict';
@@ -276,12 +277,17 @@
   // shortfall is measured in screen pixels and recomputed on every resize:
   // wide where the frame is small, nothing at all once the shape is big
   // enough to stand on its own.
-  // SMALL keeps the eligible set to the six countries the design was reviewed
-  // with; FLOOR drops a dilation too thin to be worth having, because the
-  // stroke replaces the country's darker border rather than adding to it.
-  const SMALL = 45, MIN_PX = 11, DILATE_MAX = 6, FLOOR = 1.6;
+  // Eligibility is the shorter side, the same quantity the stroke is sized
+  // from — not area. Area mis-sorts a country that is long and thin: Malawi's
+  // area is twice Costa Rica's, but it is narrower than the Dominican
+  // Republic, and on a phone an area gate left it a 3px thread while every
+  // country around it was dilated. NARROW sits between Costa Rica (8.7) and
+  // Jordan (10.0), so the eligible set is the six reviewed, plus Malawi.
+  // FLOOR drops a dilation too thin to be worth having, because the stroke
+  // replaces the country's darker border rather than adding to it.
+  const NARROW = 9.5, MIN_PX = 11, DILATE_MAX = 6, FLOOR = 1.6;
   function dilationOf(g, k) {
-    if (g.a >= SMALL) return 0;
+    if (g.m >= NARROW) return 0;
     const d = Math.min(DILATE_MAX, MIN_PX - g.m * k);
     return d < FLOOR ? 0 : d;
   }
@@ -385,6 +391,16 @@
       const node = svgEl('path', { class: 'country' + (small ? ' small' : ''), d: g.d });
       node.style.fill = colour;
       if (small) {
+        // A dilated mark is stroked in its own fill colour, so two dilated
+        // neighbours ran together into one shape with no border between them —
+        // Rwanda and Burundi became a single blob on a phone. A slightly wider
+        // stroke in the ordinary border colour, drawn underneath, gives the
+        // mark the same hairline edge every other country has. Interleaved
+        // rather than banked in one layer, so each country's edge draws over
+        // the neighbour already laid down and the join stays visible.
+        const edge = svgEl('path', { class: 'country-edge', d: g.d });
+        edge.style.strokeWidth = dil + 1.4;
+        fills.append(edge);
         node.style.stroke = n === 0 ? '#C2CBCD' : colour;
         node.style.strokeWidth = dil;
         // Focus recolours the stroke, so it needs a width of its own: at the
@@ -673,6 +689,6 @@
                      render, open: selectCountry, close: closeDrill };
 })();
 </script>
-<script src="shared/cgd-embed.js?v=20261115c"></script>
+<script src="shared/cgd-embed.js?v=20261115d"></script>
 </body>
 </html>

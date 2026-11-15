@@ -204,7 +204,16 @@ with sync_playwright() as p:
     dr_wide = page.evaluate(SW, "214")
     check("the Dominican Republic takes far less", 0 < dr_wide < 3, True)
     check("Jordan keeps its own border", page.evaluate(SW, "400"), BASE)
-    check("Malawi keeps its own border", page.evaluate(SW, "454"), BASE)
+    check("Kenya keeps its own border", page.evaluate(SW, "404"), BASE)
+    check("every dilated country carries its own edge",
+          page.evaluate("() => { const n = document.querySelectorAll('#map .country.small').length;"
+                        " return n > 0 && n === document.querySelectorAll('#map .country-edge').length; }"), True)
+    check("the edge is wider than the fill stroke, so neighbours stay apart",
+          page.evaluate("() => [...document.querySelectorAll('#map .country.small')].every(c => {"
+                        " const e = c.previousElementSibling;"
+                        " return e && e.classList.contains('country-edge')"
+                        " && parseFloat(getComputedStyle(e).strokeWidth)"
+                        "    > parseFloat(getComputedStyle(c).strokeWidth); })"), True)
     page.select_option("#countrySelect", "214")
     check("a lightly dilated country keeps its true outline",
           page.evaluate("() => !!document.querySelector('#map path.outline')"), True)
@@ -212,6 +221,11 @@ with sync_playwright() as p:
     page.wait_for_timeout(300)
     check("and is dilated hard once the frame is small",
           page.evaluate(SW, "214"), 6)
+    # Eligibility is the shorter side, not area. Malawi's area is twice Costa
+    # Rica's, but it is narrower than the Dominican Republic, and an area gate
+    # left it a 3px thread on a phone while everything round it was dilated.
+    check("narrow Malawi is dilated despite its area",
+          page.evaluate(SW, "454"), 6)
     check("where the outline becomes a halo",
           page.evaluate("() => !!document.querySelector('#map circle.outline')"), True)
     page.set_viewport_size({"width": 1100, "height": 900})

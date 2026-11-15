@@ -98,10 +98,24 @@ not use (the country × occupation grid rather than the long list):
   each country's shorter side; the figure measures it against a minimum on-screen
   mark at the current frame width and strokes only the difference, so the
   dilation is heavy on a phone, light on a laptop, and absent once the shape
-  stands on its own. The six eligible countries are unchanged. A dilation thinner
-  than the ordinary border is dropped, because the stroke replaces that border
-  rather than adding to it, and a country whose boundary is still visible keeps
-  its true selection outline instead of the halo ring.
+  stands on its own. A dilation thinner than the ordinary border is dropped, and
+  a country whose boundary is still visible keeps its true selection outline
+  instead of the halo ring.
+* **Eligibility is the shorter side, not the area.** Area mis-sorts a country
+  that is long and thin. Malawi's area is twice Costa Rica's, so an area gate
+  never dilated it — but it is narrower than the Dominican Republic, and at
+  320px it was a 3.7px thread while every country around it had been dilated to
+  about 9px. The threshold now sits between Costa Rica (8.7 units) and Jordan
+  (10.0), which is the six countries the design was reviewed with, plus Malawi.
+  Dropping the gate altogether is not the answer: at 320px the shortfall rule
+  alone would dilate sixteen countries, Türkiye and Kenya among them.
+* **A dilated country gets its border drawn back underneath it.** The dilation
+  stroke is the country's own fill colour, so two dilated neighbours ran
+  together into a single shape with no join — Rwanda and Burundi were one blob
+  on a phone. Each dilated country is now preceded by the same path stroked
+  1.4px wider in the ordinary border colour. Interleaved, not banked in one
+  layer: each country's edge draws over the neighbour already laid down, so the
+  join between two touching marks stays visible.
 * **No country labels.** Six of the nine largest pools sit in one cluster
   (Türkiye, Lebanon, Jordan, Egypt, Iraq, Saudi Arabia) and the top-ranked set
   changes with every filter, so no label layout survives every state. Every
@@ -185,7 +199,7 @@ python qa/shots.py       # screenshots at 320/390/700/768/1200px + in-page audit
 without Node, which is why both are here.
 
 **Last verified:** 15 November 2026 — gate clean at 320/768/1200px, state
-exercise clean (60 checks, including the country breakdown, its tooltips, the
+exercise clean (64 checks, including the country breakdown, its tooltips, the
 two-layer Escape and the size-aware dilation), control audit clean at
 320/390/700/768px, no console errors, frame
 grows and shrinks. Published site checked at
