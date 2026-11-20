@@ -27,7 +27,9 @@ the reader.
 | `select` | `country` | country name | a country is clicked, chosen in "Find a country", or opened with Enter |
 | `open` | `country_detail` | country name | the country's occupation breakdown opens |
 | `filter` | `country_detail_band` | `ALL`, `RQF 6+`, `RQF 3-5`, `RQF 1-2`, `TSL` | the band is changed inside that breakdown |
-| `download` | `country_counts` | occupation name, or `ALL` | the CSV is downloaded |
+
+The figure sends no `download` event: the CSV button was removed from the note,
+and with it the only download the figure offered.
 
 `select` / `country` and `open` / `country_detail` always fire together, because
 selecting a country is what opens its breakdown. Both are kept: the first counts

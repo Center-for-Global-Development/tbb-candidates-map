@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Where are the skilled refugees the UK could recruit?</title>
-<link rel="stylesheet" href="shared/cgd-figure.css?v=20261120d">
-<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261120d">
+<link rel="stylesheet" href="shared/cgd-figure.css?v=20261120e">
+<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261120e">
 <style>
   /* Desktop: one control row — the occupation band, then the occupation.
      The band control carries the shortage list as a fifth option rather than a
@@ -154,8 +154,6 @@
 
   .notes a{color:var(--cgd-light-teal);text-decoration:underline}
   .notes a:hover{color:var(--cgd-teal)}
-  .notes button.linklike{border:0;background:none;padding:0;font:inherit;color:var(--cgd-light-teal);text-decoration:underline;cursor:pointer}
-  .notes button.linklike:hover{color:var(--cgd-teal)}
 </style>
 </head>
 <body>
@@ -231,15 +229,15 @@
   <div class="tooltip" id="tooltip" hidden></div>
 </div>
 
-<script src="shared/dom.js?v=20261120d"></script>
-<script src="shared/chart-core.js?v=20261120d"></script>
-<script src="data/world-paths.js?v=20261120d"></script>
-<script src="data/tbb-candidates-data.js?v=20261120d"></script>
+<script src="shared/dom.js?v=20261120e"></script>
+<script src="shared/chart-core.js?v=20261120e"></script>
+<script src="data/world-paths.js?v=20261120e"></script>
+<script src="data/tbb-candidates-data.js?v=20261120e"></script>
 <script>
 (() => {
   'use strict';
   window.CGD_READY = false;
-  const { element, svgEl, downloadCsv } = window.CGDDom;
+  const { element, svgEl } = window.CGDDom;
   const C = window.CGDCore;
   const GEO = window.TBB_GEO, DATA = window.TBB_DATA;
 
@@ -494,7 +492,6 @@
     mapEl.replaceChildren(svg, zoomCtl);   // the controls are not part of the map
 
     renderLegend(ths);
-    renderNotes(v);
     occSelect.value = S.occ;
     countrySelect.value = findOnly() ? '' : (S.selected || '');
   }
@@ -530,15 +527,8 @@
       + `in ${v.withAny} of ${COUNTRIES.length} countries. `
       + `${pct(v.total ? v.ho / v.total : 0)} are in the ${HO_WORD} countries chosen for the first phase.`;
   }
-  function renderNotes(v) {
+  function renderNotes() {
     const notes = document.getElementById('notes');
-    const dl = element('button', { className: 'linklike', text: 'Download these numbers (CSV)', attributes: { type: 'button' } });
-    dl.addEventListener('click', () => {
-      downloadCsv('tbb-candidates-' + (S.occ === 'ALL' ? 'all-occupations' : slug(S.occ)) + '.csv',
-        ['Country', 'Candidates', 'First-phase country'],
-        COUNTRIES.map((c, i) => [c.name, v.totals[i], c.ho ? 'Yes' : 'No']));
-      window.CGDTracking?.engagement('download', 'country_counts', S.occ);
-    });
     // Links open in a new tab: the figure is an iframe on a CGD page, so a
     // same-tab navigation would replace the figure inside the article rather
     // than the article itself.
@@ -562,12 +552,10 @@
         link(MAC, 'Temporary Shortage List stage 2 review (Annex 4)'),
         element('span', { text: ', via CGD’s indicative match of TBB’s occupation descriptions to ' }),
         link(SOC, 'SOC 2020 codes'),
-        element('span', { text: '. ' }),
-        dl
+        element('span', { text: '.' })
       ])
     );
   }
-  const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
   // ---- tooltip -------------------------------------------------------------
   // Re-rendering puts a new node under a stationary cursor, and the browser
@@ -755,6 +743,10 @@
 
   syncControls();
   fillOccSelect(view(S).pool);
+  // The note is the same in every state now that the download has gone, so it
+  // is built once. Rebuilding it on each render would throw away focus from
+  // one of its links whenever the reader zoomed or resized.
+  renderNotes();
   fillCountrySelect();
   // Rebuilt when the layout crosses the breakpoint, not on every resize tick:
   // replacing the options closes an open dropdown, so it must happen only when
@@ -876,6 +868,6 @@
                      render, open: selectCountry, close: closeDrill };
 })();
 </script>
-<script src="shared/cgd-embed.js?v=20261120d"></script>
+<script src="shared/cgd-embed.js?v=20261120e"></script>
 </body>
 </html>
