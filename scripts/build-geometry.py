@@ -6,8 +6,16 @@ works from file:// (which the QA gate uses).
 """
 import json, math, os, sys, urllib.request
 
-SRC = "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json"
-CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "countries-110m.json")
+# The catalogue countries are drawn from Natural Earth 50m, the rest of the
+# world from 110m. 110m is a world-scale generalisation: it gives Trinidad and
+# Tobago eight vertices and Lebanon eleven, so no amount of enlargement makes
+# them resemble their own coastlines, and the map's credibility rests on their
+# doing so. 50m costs about 300KB over the 26 countries that carry data; the
+# grey context stays on 110m, where nobody is looking that closely.
+BASE = "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/"
+# Downloads live in their own directory, away from the scripts, so nothing
+# here can shadow a module this build imports.
+CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".geocache")
 OUT = r"C:\Users\SamuelHuckstep(shuck\dev\tbb-candidates-map\data\world-paths.js"
 
 CATALOGUE = {  # M49 -> sheet name, the 26 TBB countries
@@ -22,45 +30,54 @@ CATALOGUE = {  # M49 -> sheet name, the 26 TBB countries
 DROP = {"010"}          # Antarctica: irrelevant here and it dominates the frame
 MIN_LAT = -60.0         # clip the far south with it
 
-if not os.path.exists(CACHE):
-    print("downloading", SRC)
-    urllib.request.urlretrieve(SRC, CACHE)
-topo = json.load(open(CACHE, encoding="utf-8"))
+def load(name):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    path = os.path.join(CACHE_DIR, name)
+    if not os.path.exists(path):
+        print("downloading", BASE + name)
+        urllib.request.urlretrieve(BASE + name, path)
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
 
-# ---- topojson -> geojson ---------------------------------------------------
-tr = topo.get("transform")
-sx, sy = (tr["scale"] if tr else (1, 1))
-tx, ty = (tr["translate"] if tr else (0, 0))
 
+def geometries(topo):
+    """-> {id: [ring, ...]} in lon/lat, with the antimeridian un-wrapped."""
+    tr = topo.get("transform")
+    sx, sy = (tr["scale"] if tr else (1, 1))
+    tx, ty = (tr["translate"] if tr else (0, 0))
 
-def decode_arc(arc):
-    out, x, y = [], 0, 0
-    for dx, dy in arc:
-        x += dx
-        y += dy
-        out.append((x * sx + tx, y * sy + ty) if tr else (x, y))
+    def decode(arc):
+        out, x, y = [], 0, 0
+        for dx, dy in arc:
+            x += dx
+            y += dy
+            out.append((x * sx + tx, y * sy + ty) if tr else (x, y))
+        return out
+
+    arcs = [decode(a) for a in topo["arcs"]]
+
+    def ring(idxs):
+        pts = []
+        for i in idxs:
+            a = arcs[~i][::-1] if i < 0 else arcs[i]
+            pts.extend(a[1:] if pts else a)
+        return pts
+
+    out = {}
+    for g in topo["objects"]["countries"]["geometries"]:
+        gid = str(g.get("id", "")).zfill(3)
+        t = g["type"]
+        if t == "Polygon":
+            rings = [ring(r) for r in g["arcs"]]
+        elif t == "MultiPolygon":
+            rings = [ring(r) for poly in g["arcs"] for r in poly]
+        else:
+            continue
+        rings = [unwrap(r) for r in rings if len(r) >= 4]
+        if rings:
+            out[gid] = {"rings": rings,
+                        "name": (g.get("properties") or {}).get("name", "")}
     return out
-
-
-ARCS = [decode_arc(a) for a in topo["arcs"]]
-
-
-def ring_coords(idxs):
-    pts = []
-    for i in idxs:
-        a = ARCS[~i][::-1] if i < 0 else ARCS[i]
-        pts.extend(a[1:] if pts else a)
-    return pts
-
-
-def polygons(geom):
-    """-> list of rings (each a list of lon/lat tuples)."""
-    t = geom["type"]
-    if t == "Polygon":
-        return [ring_coords(r) for r in geom["arcs"]]
-    if t == "MultiPolygon":
-        return [ring_coords(r) for poly in geom["arcs"] for r in poly]
-    return []
 
 
 # ---- Natural Earth 1 (same polynomial as d3-geo) ---------------------------
@@ -100,16 +117,20 @@ def unwrap(ring):
     return [(lon + shift, lat) for lon, lat in out] if shift else out
 
 
-geoms = topo["objects"]["countries"]["geometries"]
+# Two resolutions: 50m for the countries that carry data, 110m for the rest.
+coarse = geometries(load("countries-110m.json"))
+fine = geometries(load("countries-50m.json"))
+missing_fine = sorted(set(CATALOGUE) - set(fine))
+assert not missing_fine, ["no 50m geometry for: " + ", ".join(CATALOGUE[m] for m in missing_fine)]
+
 feats = []
-for g in geoms:
-    gid = str(g.get("id", "")).zfill(3)
+for gid in sorted(set(coarse) | (set(fine) & set(CATALOGUE))):
     if gid in DROP:
         continue
-    rings = [unwrap(r) for r in polygons(g) if len(r) >= 4]
-    if not rings:
+    src = fine if gid in CATALOGUE else coarse
+    if gid not in src:
         continue
-    feats.append({"id": gid, "name": (g.get("properties") or {}).get("name", ""), "rings": rings})
+    feats.append({"id": gid, "name": src[gid]["name"], "rings": src[gid]["rings"]})
 
 # ---- fit to a 960-wide frame ----------------------------------------------
 # The horizontal extent is the projection's own, a full 360 degrees measured at
@@ -154,7 +175,11 @@ def ring_area_px(r):
 
 countries, context = {}, []
 for f in feats:
-    d = path_d(f["rings"])
+    # Catalogue countries are written at two decimals. At one, the rounding is
+    # itself a generalisation: Trinidad and Tobago is 2.4 units across, so a
+    # 0.1 grid left it 24 possible x positions and threw away most of the 50m
+    # detail the moment it was written out. The context stays at one decimal.
+    d = path_d(f["rings"], nd=2 if f["id"] in CATALOGUE else 1)
     if not d:
         continue
     if f["id"] in CATALOGUE:

@@ -192,68 +192,53 @@ with sync_playwright() as p:
     check("total", page.evaluate(TOTAL), expected("RQF 3-5")[0])
     page.click('[data-band="ALL"]')
 
-    print("dilation is sized to the shortfall, not a flat stroke")
-    # Regression guard for the blobby Dominican Republic: a flat 6px stroke on
-    # every country under an area threshold buried the shapes that did not need
-    # it. The stroke must shrink as the frame grows, stay off countries big
-    # enough to stand alone, and never replace a normal country's border.
+    print("small countries are enlarged, not thickened")
+    # The guarantee this replaces a stroke to get: a country is drawn larger
+    # than life but with its own outline, so Trinidad and Tobago still has two
+    # islands and Lebanon is still long and thin. A stroke added a constant
+    # margin all round, filling every inlet, and no size made the result
+    # resemble the country.
     SW = ("id => +getComputedStyle(document.querySelector('#map [data-id=\"' + id + '\"]'))"
           ".strokeWidth.replace('px', '')")
-    JOIN = ("id => getComputedStyle(document.querySelector('#map [data-id=\"' + id + '\"]'))"
-            ".strokeLinejoin")
+    SCALE = ("id => { const t = document.querySelector('#map [data-id=\"' + id + '\"]')"
+             ".getAttribute('transform');"
+             " const m = t && t.match(/scale\(([0-9.]+)\)/);"
+             " return m ? Math.round(+m[1] * 100) / 100 : 1; }")
     BASE = 0.7                                  # the ordinary .country border
-    # Narrowest first: Trinidad 2.7 units, Lebanon 3.4, Burundi 4.6, Rwanda 4.7,
-    # Dominican Republic 7.0, Malawi 7.8, Costa Rica 8.7. The dilation must fall
-    # as the country widens, and reach nothing before the list runs out.
-    widths = [page.evaluate(SW, i) for i in ("780", "422", "108", "646", "214", "454", "188")]
-    check("dilation falls as the country widens",
-          all(a >= b for a, b in zip(widths, widths[1:])), True)
-    check("the narrowest are dilated hard", widths[0] > 4, True)
-    check("and the widest are left alone", widths[-1], BASE)
-    check("the Dominican Republic is not dilated at all on a laptop",
-          page.evaluate(SW, "214"), BASE)
-    check("so its corners stay square", page.evaluate(JOIN, "214"), "miter")
-    check("Jordan keeps its own border", page.evaluate(SW, "400"), BASE)
-    check("Kenya keeps its own border", page.evaluate(SW, "404"), BASE)
-    check("a mark that is mostly stroke still rounds its joins",
-          page.evaluate(JOIN, "422"), "round")
-    check("every dilated country carries its own edge",
-          page.evaluate("() => { const n = document.querySelectorAll('#map .country.small').length;"
-                        " return n > 0 && n === document.querySelectorAll('#map .country-edge').length; }"), True)
-    check("the edge is wider than the fill stroke, so neighbours stay apart",
-          page.evaluate("() => [...document.querySelectorAll('#map .country.small')].every(c => {"
-                        " const e = c.previousElementSibling;"
-                        " return e && e.classList.contains('country-edge')"
-                        " && parseFloat(getComputedStyle(e).strokeWidth)"
-                        "    > parseFloat(getComputedStyle(c).strokeWidth); })"), True)
-    page.select_option("#countrySelect", "214")
-    check("an undilated country takes the plain outline",
-          page.evaluate("() => { const e = document.querySelector('#map .outline');"
-                        " return e.tagName + ':' + getComputedStyle(e).strokeWidth; }"), "path:2.2px")
+    # Narrowest first: Trinidad 2.4 units, Lebanon 3.3, Burundi 4.7, Rwanda 5.3,
+    # Dominican Republic 7.0, Malawi 8.3, Costa Rica 8.5.
+    NARROWEST = ("780", "422", "108", "646", "214", "454", "188")
+    check("every country keeps the ordinary hairline border",
+          page.evaluate("() => [...document.querySelectorAll('#map .country')]"
+                        ".every(c => getComputedStyle(c).strokeWidth === '0.7px')"), True)
+    scales = [page.evaluate(SCALE, i) for i in NARROWEST]
+    check("enlargement falls as the country widens",
+          all(a >= b for a, b in zip(scales, scales[1:])), True)
+    check("the narrowest is enlarged", scales[0] > 2, True)
+    check("the widest of them is left at its true size", scales[-1], 1)
+    check("a country above the threshold is never enlarged", page.evaluate(SCALE, "400"), 1)
+    check("Trinidad and Tobago keeps both islands",
+          page.evaluate("() => (document.querySelector('#map [data-id=\"780\"]')"
+                        ".getAttribute('d').match(/M/g) || []).length"), 2)
+    check("the enlarged path is the country's own, untouched",
+          page.evaluate("() => { const c = document.querySelector('#map [data-id=\"422\"]');"
+                        " return c.getAttribute('d') === window.TBB_GEO.countries['422'].d; }"), True)
+    page.select_option("#countrySelect", "422")
+    check("the selection is a path, never a circle",
+          page.evaluate("() => !!document.querySelector('#map path.outline')"
+                        " && !document.querySelector('#map circle.outline')"), True)
+    check("and it is drawn at the same size as the country",
+          page.evaluate("() => { const o = document.querySelector('#map .outline');"
+                        " const c = document.querySelector('#map [data-id=\"422\"]');"
+                        " return o.getAttribute('transform') === c.getAttribute('transform'); }"), True)
     page.set_viewport_size({"width": 360, "height": 900})
     page.wait_for_timeout(300)
-    check("the Dominican Republic is dilated hard once the frame is small",
-          page.evaluate(SW, "214"), 6)
-    # Eligibility is the shorter side, not area. Malawi's area is twice Costa
-    # Rica's, but it is narrower than the Dominican Republic, and an area gate
-    # left it a 3px thread on a phone while everything round it was dilated.
-    check("narrow Malawi is dilated despite its area",
-          page.evaluate(SW, "454") > 4, True)
-    # The selection mark follows the country at every size. A circle centred on
-    # the shape threw the geometry away and read as a bullseye dropped on the
-    # map; a dilated country gets a wider outline underneath instead.
-    check("a dilated country is never outlined with a circle",
-          page.evaluate("() => !document.querySelector('#map circle.outline')"), True)
-    check("its outline still traces the country, and clears the mark",
-          page.evaluate("() => { const e = document.querySelector('#map .outline');"
-                        " const c = document.querySelector('#map [data-id=\"214\"]');"
-                        " return e.tagName === 'path' && e.getAttribute('d') === c.getAttribute('d')"
-                        " && parseFloat(getComputedStyle(e).strokeWidth)"
-                        "    > parseFloat(getComputedStyle(c).strokeWidth); }"), True)
+    check("a small frame enlarges further", page.evaluate(SCALE, "214") > 2, True)
+    check("the border is still a hairline there", page.evaluate(SW, "214"), BASE)
+    check("and the enlargement is capped", page.evaluate(SCALE, "780") <= 8, True)
     page.set_viewport_size({"width": 1100, "height": 900})
     page.wait_for_timeout(300)
-    check("back to the plain outline when the frame grows",
-          page.evaluate("() => getComputedStyle(document.querySelector('#map .outline')).strokeWidth"), "2.2px")
+    check("a wide frame lets it shrink back", page.evaluate(SCALE, "214") < 1.3, True)
     page.select_option("#countrySelect", "")
     page.keyboard.press("Escape")
 
@@ -267,10 +252,11 @@ with sync_playwright() as p:
              " return Math.round(parseFloat(p.getAttribute('width')) * k * 10) / 10; }")
     page.select_option("#occSelect", "Meteorologist")
     check("the hatch is 5px on a laptop", page.evaluate(PITCH), 5)
-    check("a country at zero is hatched, dilated or not",
-          page.evaluate("() => [...document.querySelectorAll('#map .country.small')]"
-                        ".every(c => !c.style.stroke || c.style.stroke.includes('zeroHatch')"
-                        " || c.style.stroke === c.style.fill)"), True)
+    check("every country at zero is hatched, enlarged or not",
+          page.evaluate("() => { const t = window.TBB_MAP.view().totals;"
+                        " const cs = [...document.querySelectorAll('#map .country')];"
+                        " const z = cs.filter((c, i) => t[i] === 0);"
+                        " return z.length > 0 && z.every(c => c.style.fill.includes('zeroHatch')); }"), True)
     check("the gold ring is at full width on a laptop",
           page.evaluate("() => Math.max(...[...document.querySelectorAll('#map .ho-ring')]"
                         ".map(e => parseFloat(getComputedStyle(e).strokeWidth)))"), 1.9)
