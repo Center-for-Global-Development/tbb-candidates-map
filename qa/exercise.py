@@ -192,54 +192,107 @@ with sync_playwright() as p:
     check("total", page.evaluate(TOTAL), expected("RQF 3-5")[0])
     page.click('[data-band="ALL"]')
 
-    print("small countries are enlarged, not thickened")
-    # The guarantee this replaces a stroke to get: a country is drawn larger
-    # than life but with its own outline, so Trinidad and Tobago still has two
-    # islands and Lebanon is still long and thin. A stroke added a constant
-    # margin all round, filling every inlet, and no size made the result
-    # resemble the country.
-    SW = ("id => +getComputedStyle(document.querySelector('#map [data-id=\"' + id + '\"]'))"
-          ".strokeWidth.replace('px', '')")
-    SCALE = ("id => { const t = document.querySelector('#map [data-id=\"' + id + '\"]')"
-             ".getAttribute('transform');"
-             " const m = t && t.match(/scale\(([0-9.]+)\)/);"
-             " return m ? Math.round(+m[1] * 100) / 100 : 1; }")
-    BASE = 0.7                                  # the ordinary .country border
-    # Narrowest first: Trinidad 2.4 units, Lebanon 3.3, Burundi 4.7, Rwanda 5.3,
-    # Dominican Republic 7.0, Malawi 8.3, Costa Rica 8.5.
-    NARROWEST = ("780", "422", "108", "646", "214", "454", "188")
+    print("every country is drawn where it is, at the size it is")
+    # The invariant two earlier attempts broke. A stroke in the country's own
+    # colour filled every inlet; enlarging the shape about its centre pushed it
+    # into its neighbours, so Trinidad and Tobago reached the coast of Venezuela
+    # and Lebanon reached into the Mediterranean. Countries tile the plane, so
+    # any enlargement takes someone else's territory.
+    check("nothing on the map is transformed",
+          page.evaluate("() => document.querySelectorAll('#map [transform]').length"), 0)
+    check("every path drawn is the payload's own, unmodified",
+          page.evaluate("() => [...document.querySelectorAll('#map .country')].every(c =>"
+                        " c.getAttribute('d') === window.TBB_GEO.countries[c.getAttribute('data-id')].d)"), True)
     check("every country keeps the ordinary hairline border",
           page.evaluate("() => [...document.querySelectorAll('#map .country')]"
                         ".every(c => getComputedStyle(c).strokeWidth === '0.7px')"), True)
-    scales = [page.evaluate(SCALE, i) for i in NARROWEST]
-    check("enlargement falls as the country widens",
-          all(a >= b for a, b in zip(scales, scales[1:])), True)
-    check("the narrowest is enlarged", scales[0] > 2, True)
-    check("the widest of them is left at its true size", scales[-1], 1)
-    check("a country above the threshold is never enlarged", page.evaluate(SCALE, "400"), 1)
-    check("Trinidad and Tobago keeps both islands",
+    check("Trinidad and Tobago still has both islands",
           page.evaluate("() => (document.querySelector('#map [data-id=\"780\"]')"
                         ".getAttribute('d').match(/M/g) || []).length"), 2)
-    check("the enlarged path is the country's own, untouched",
-          page.evaluate("() => { const c = document.querySelector('#map [data-id=\"422\"]');"
-                        " return c.getAttribute('d') === window.TBB_GEO.countries['422'].d; }"), True)
-    page.select_option("#countrySelect", "422")
-    check("the selection is a path, never a circle",
-          page.evaluate("() => !!document.querySelector('#map path.outline')"
-                        " && !document.querySelector('#map circle.outline')"), True)
-    check("and it is drawn at the same size as the country",
-          page.evaluate("() => { const o = document.querySelector('#map .outline');"
-                        " const c = document.querySelector('#map [data-id=\"422\"]');"
-                        " return o.getAttribute('transform') === c.getAttribute('transform'); }"), True)
-    page.set_viewport_size({"width": 360, "height": 900})
-    page.wait_for_timeout(300)
-    check("a small frame enlarges further", page.evaluate(SCALE, "214") > 2, True)
-    check("the border is still a hairline there", page.evaluate(SW, "214"), BASE)
-    check("and the enlargement is capped", page.evaluate(SCALE, "780") <= 8, True)
-    page.set_viewport_size({"width": 1100, "height": 900})
-    page.wait_for_timeout(300)
-    check("a wide frame lets it shrink back", page.evaluate(SCALE, "214") < 1.3, True)
-    page.select_option("#countrySelect", "")
+
+    # The direct test of the defect: no country may paint on another's land.
+    # Sampled in the browser's own geometry, so it covers all 26 at once rather
+    # than the two that happened to be reported.
+    #
+    # Two things this has to get right. Everything goes through screen space,
+    # because isPointInFill works in the element's own user space, before its
+    # transform — a test written in user space silently checks the payload
+    # rather than the picture, and passed with a 2.2x enlargement put back.
+    # And only strictly interior points count: neighbours share a border and
+    # both polygons contain it, so a point within a pixel of the coast is
+    # inside two countries legitimately.
+    SPILL = """() => {
+        const svg = document.querySelector('#map svg');
+        const cs = [...document.querySelectorAll('#map .country')];
+        const ctx = document.querySelector('#map .context');
+        const ctm = cs.map(c => c.getScreenCTM());
+        const inv = ctm.map(m => m.inverse());
+        const back = ctx.getScreenCTM().inverse();
+        const at = (el, m, x, y) => {
+          const u = svg.createSVGPoint(); u.x = x; u.y = y;
+          const q = m ? u.matrixTransform(m) : u;
+          const r = svg.createSVGPoint(); r.x = q.x; r.y = q.y;
+          return el.isPointInFill(r);
+        };
+        const RING = [[2,0],[-2,0],[0,2],[0,-2],[1.4,1.4],[-1.4,-1.4]];
+        const over = [], onto = [];
+        cs.forEach((c, ci) => {
+          const bb = c.getBBox();
+          const px = 2 / (ctm[ci].a || 1);          // 2 screen px, in user units
+          const inner = [];
+          for (let t = 0; t < 6000 && inner.length < 25; t++) {
+            const x = bb.x + Math.random() * bb.width;
+            const y = bb.y + Math.random() * bb.height;
+            if (!at(c, null, x, y)) continue;
+            if (!RING.every(([dx, dy]) => at(c, null, x + dx * px / 2, y + dy * px / 2))) continue;
+            const s = svg.createSVGPoint(); s.x = x; s.y = y;
+            inner.push(s.matrixTransform(ctm[ci]));
+          }
+          if (!inner.length) return;
+          cs.forEach((o, oi) => {
+            if (o === c) return;
+            if (inner.some(s => { const q = s.matrixTransform(inv[oi]);
+                                  return at(o, null, q.x, q.y); }))
+              over.push(c.getAttribute('data-id') + ' over ' + o.getAttribute('data-id'));
+          });
+          if (inner.some(s => { const q = s.matrixTransform(back);
+                                return at(ctx, null, q.x, q.y); }))
+            onto.push(c.getAttribute('data-id'));
+        });
+        return { over, onto };
+    }"""
+    spill = page.evaluate(SPILL)
+    check("no country is drawn on another country's land", spill["over"], [])
+    # The other half: the countries not in the catalogue are one merged path.
+    # A catalogue country painting inside it is Trinidad and Tobago on the coast
+    # of Venezuela, or Lebanon in Syria.
+    check("and none is drawn over the surrounding land", spill["onto"], [])
+
+    print("small countries get an invisible target, not a bigger body")
+    PAD = ("id => { const c = document.querySelector('#map [data-id=\"' + id + '\"]');"
+           " const p = c.previousElementSibling;"
+           " if (!p || !p.classList.contains('hit')) return 0;"
+           " return Math.round(parseFloat(getComputedStyle(p).strokeWidth) * 10) / 10; }")
+    check("Lebanon has one", page.evaluate(PAD, "422") > 3, True)
+    check("Trinidad and Tobago has one", page.evaluate(PAD, "780") > 3, True)
+    check("India, which needs none, has none", page.evaluate(PAD, "356"), 0)
+    check("the pad paints nothing",
+          page.evaluate("() => [...document.querySelectorAll('#map .hit')].every(p => {"
+                        " const cs = getComputedStyle(p);"
+                        " return cs.fill === 'none' && /rgba\(0, 0, 0, 0\)/.test(cs.stroke); })"), True)
+    check("and it traces the country, so it cannot drag the shape out of place",
+          page.evaluate("() => [...document.querySelectorAll('#map .hit')].every(p =>"
+                        " p.getAttribute('d') === p.nextElementSibling.getAttribute('d'))"), True)
+    # The point of the pad: a country a pixel and a half across is still usable.
+    page.evaluate("""() => { const c = document.querySelector('#map [data-id="422"]');
+        const b = c.getBoundingClientRect();
+        const e = new MouseEvent('click', { clientX: b.x + b.width / 2,
+                                            clientY: b.y - 3, bubbles: true });
+        document.elementFromPoint(b.x + b.width / 2, b.y - 3).dispatchEvent(e); }""")
+    page.wait_for_timeout(200)
+    check("a click just off the coast still selects Lebanon",
+          page.evaluate(SEL), "422")
+    page.keyboard.press("Escape")
     page.keyboard.press("Escape")
 
     print("the hatch, the gold ring and the zero mark hold their size")

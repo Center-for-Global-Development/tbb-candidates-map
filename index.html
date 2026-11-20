@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Where are the skilled refugees the UK could recruit?</title>
-<link rel="stylesheet" href="shared/cgd-figure.css?v=20261120b">
-<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261120b">
+<link rel="stylesheet" href="shared/cgd-figure.css?v=20261120c">
+<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261120c">
 <style>
   /* Desktop: one control row — the occupation band, then the occupation.
      The band control carries the shortage list as a fifth option rather than a
@@ -61,7 +61,10 @@
      no scale and reads the same over the palest class and the darkest. It is
      also why the countries outside the catalogue do not respond — they take no
      pointer events, so the halo doubles as "this one can be opened". */
-  .map svg .country:hover{filter:drop-shadow(0 0 2.5px rgba(11,76,91,.62))}
+  .map svg .country:hover,
+  .map svg .hit:hover + .country{filter:drop-shadow(0 0 2.5px rgba(11,76,91,.62))}
+  /* Invisible, and deliberately so: it enlarges the target, never the country. */
+  .hit{fill:none;stroke:rgba(0,0,0,0);vector-effect:non-scaling-stroke;cursor:pointer}
   @media (prefers-reduced-motion:reduce){.country{transition:none}}
   /* The gold ring marks the seven countries of the first phase. It is drawn as
      its own layer above every fill so a neighbour's fill cannot paint over it,
@@ -194,10 +197,10 @@
   <div class="tooltip" id="tooltip" hidden></div>
 </div>
 
-<script src="shared/dom.js?v=20261120b"></script>
-<script src="shared/chart-core.js?v=20261120b"></script>
-<script src="data/world-paths.js?v=20261120b"></script>
-<script src="data/tbb-candidates-data.js?v=20261120b"></script>
+<script src="shared/dom.js?v=20261120c"></script>
+<script src="shared/chart-core.js?v=20261120c"></script>
+<script src="data/world-paths.js?v=20261120c"></script>
+<script src="data/tbb-candidates-data.js?v=20261120c"></script>
 <script>
 (() => {
   'use strict';
@@ -263,29 +266,22 @@
   const colourOf = (v, ths) => v === 0 || !ths.length
     ? 'url(#zeroHatch)'
     : rampColour(binOf(v, ths), ths.length);
-  // Countries too small to see or hit at this projection — Lebanon and Trinidad
-  // and Tobago among them, and Lebanon holds the second largest pool of all.
+  // Every country is drawn at its true size, in its true place. Two earlier
+  // attempts to make the small ones easier to see are gone, because both lied
+  // about the map: a stroke in the country's own colour filled every inlet and
+  // produced a lozenge, and enlarging the shape about its centre pushed it
+  // into its neighbours — Trinidad and Tobago reached the coast of Venezuela,
+  // Lebanon reached into the Mediterranean and down towards Jordan. Countries
+  // tile the plane; there is no empty space to grow into, so any enlargement
+  // takes territory that belongs to someone else.
   //
-  // They are drawn larger than life, about their own centre, rather than
-  // thickened with a stroke. A stroke was the wrong instrument: it adds a
-  // constant margin all the way round, so it fills every inlet and rounds off
-  // every headland, and the result was a lozenge that did not resemble the
-  // country at any size. Enlarging the path leaves the outline exactly as
-  // Natural Earth drew it — same inlets, same proportions, same islands — just
-  // bigger, and the border stays a hairline because it does not scale.
-  //
-  // The enlargement is only what the frame requires: the shorter side is
-  // brought up to a readable, tappable minimum and no further, so a country
-  // is drawn at its true size as soon as there is room for it.
-  const NARROW = 9.5, MIN_PX = 9.5, SCALE_MAX = 8;
-  function scaleOf(g, k) {
-    if (g.m >= NARROW) return 1;
-    return Math.min(SCALE_MAX, Math.max(1, MIN_PX / (g.m * k)));
-  }
-  // Grown about its own centre, so the country stays where it belongs.
-  const transformOf = (g, s) => s > 1
-    ? `translate(${g.cx} ${g.cy}) scale(${s}) translate(${-g.cx} ${-g.cy})`
-    : null;
+  // What a small country needs is not to be bigger but to be hittable, and
+  // that can be given away for nothing: an invisible stroke, wide enough to
+  // reach a usable target, carrying the same handlers as the country itself.
+  // It paints nothing, so the geography is untouched. This is why the map can
+  // be read on a phone where Lebanon is a pixel and a half across.
+  const HIT_PX = 11, HIT_MAX = 14;
+  const hitWidth = (g, k) => Math.min(HIT_MAX, Math.max(0, HIT_PX - g.m * k));
 
   // The gold first-phase ring is centred on the boundary, so it eats into the
   // fill from both sides — and the fill is the data. A flat 1.9px is 5-11% of
@@ -397,10 +393,17 @@
     const fills = svgEl('g'), rings = svgEl('g'), outline = svgEl('g');
     COUNTRIES.forEach((c, i) => {
       const g = GEO.countries[c.id], n = v.totals[i], colour = colourOf(n, ths);
-      const sc = scaleOf(g, k), small = sc > 1, tf = transformOf(g, sc);
-      const node = svgEl('path', { class: 'country' + (small ? ' small' : ''), d: g.d });
+      // The pad sits immediately before its country and is referenced by the
+      // hover rule, so a pointer on the padding lights the country itself.
+      const hit = hitWidth(g, k);
+      if (hit > 0.5) {
+        const pad = svgEl('path', { class: 'hit', d: g.d });
+        pad.style.strokeWidth = hit;
+        attach(pad, c, i, v);
+        fills.append(pad);
+      }
+      const node = svgEl('path', { class: 'country', d: g.d });
       node.style.fill = colour;
-      if (tf) node.setAttribute('transform', tf);
       node.setAttribute('tabindex', '0');
       node.setAttribute('role', 'img');
       node.setAttribute('data-id', c.id);
@@ -410,15 +413,9 @@
       if (c.ho) {
         const ring = svgEl('path', { class: 'ho-ring', d: g.d });
         ring.style.strokeWidth = ringWidth(g, k);
-        if (tf) ring.setAttribute('transform', tf);
         rings.append(ring);
       }
-      // Selection traces the country, at whatever size the country is drawn.
-      if (S.selected === c.id) {
-        const out = svgEl('path', { class: 'outline', d: g.d });
-        if (tf) out.setAttribute('transform', tf);
-        outline.append(out);
-      }
+      if (S.selected === c.id) outline.append(svgEl('path', { class: 'outline', d: g.d }));
     });
     svg.append(fills, rings, outline);
     svg.addEventListener('click', e => {
@@ -696,6 +693,6 @@
                      render, open: selectCountry, close: closeDrill };
 })();
 </script>
-<script src="shared/cgd-embed.js?v=20261120b"></script>
+<script src="shared/cgd-embed.js?v=20261120c"></script>
 </body>
 </html>

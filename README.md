@@ -98,37 +98,40 @@ not use (the country × occupation grid rather than the long list):
 * **The palest class is a clear colour, not an off-grey.** At `#E4F0F1` the
   smallest pools were indistinguishable from countries not in the catalogue at
   all. Catalogue countries also carry a darker boundary than the context.
-* **Small countries are enlarged, not thickened, and not replaced by symbols.**
-  Lebanon holds the second largest pool and is one of the smallest countries on
-  the map. It is drawn larger than life about its own centre, with its own
-  outline. A stroke in the country's fill colour was the earlier answer and the
-  wrong instrument: a stroke adds a constant margin all the way round, so it
-  fills every inlet and rounds off every headland, and the result was a lozenge
-  that did not resemble the country at any size. Enlarging the path leaves the
-  coastline exactly as Natural Earth drew it — same inlets, same proportions,
-  same islands — and the border stays a hairline because it does not scale.
-  Markers were rejected earlier for a different reason: at this density they
-  collided (Rwanda with Burundi, Lebanon with Jordan).
-* **The enlargement is only what the frame requires.** The shorter side is
-  brought up to a readable, tappable minimum and no further, recomputed on
-  every resize, so a country is drawn at its true size as soon as there is room
-  for it. At 960px that is Trinidad and Tobago ×3.0, Lebanon ×2.2, Burundi ×1.6,
-  Rwanda ×1.4 and nothing else; the Dominican Republic, Malawi and Costa Rica
-  are already big enough. Eligibility is the shorter side rather than the area,
-  because area mis-sorts a country that is long and thin: Malawi's area is twice
-  Costa Rica's, but it is narrower than the Dominican Republic.
-* **Catalogue countries are drawn from Natural Earth 50m, the rest of the world
-  from 110m.** 110m is a world-scale generalisation — it gave Trinidad and
-  Tobago eight vertices (one island, not two) and Lebanon eleven, so no
-  enlargement could make them resemble their own coastlines, and the
-  credibility of the map rests on their doing so. At 50m they have 38 and 62.
-  Catalogue paths are also written at two decimals rather than one: on a country
-  2.4 units across, a 0.1 grid is itself a generalisation. The cost is 255KB of
-  geometry, 91KB gzipped, for the 26 countries that carry data; the grey context
-  stays on 110m, where nobody is looking that closely.
-* **Selection traces the country, at whatever size the country is drawn.** An
-  earlier version put a circle on the small ones, which threw the shape away and
-  read as a bullseye dropped on the map.
+* **Every country is drawn at its true size, in its true place.** Two earlier
+  attempts to make the small ones easier to see are gone, because both lied
+  about the map. A stroke in the country's own fill colour added a constant
+  margin all round, filling every inlet and rounding every headland, so the mark
+  was a lozenge at any size. Enlarging the shape about its centre kept the
+  outline honest but pushed it into its neighbours: Trinidad and Tobago reached
+  the coast of Venezuela, and Lebanon reached into the Mediterranean and down
+  towards Jordan. Countries tile the plane — there is no empty space to grow
+  into, so any enlargement takes territory that belongs to someone else. The
+  cost is that Lebanon, which holds the second largest pool, is about 4px across
+  on a laptop and a pixel and a half on a phone.
+* **What a small country gets instead is an invisible target.** A transparent
+  stroke, wide enough to reach an 11px hit area, carrying the same handlers as
+  the country. It paints nothing, so the geography is untouched, and it is
+  applied by on-screen size rather than by a fixed list, so it follows the frame
+  — Jordan gets one at 320px and none on a laptop. Hover still lights the
+  country itself, through an adjacent-sibling rule.
+* **One resolution for the whole map: Natural Earth 50m.** Mixing them was a
+  mistake that shipped: catalogue countries at 50m over a 110m world do not
+  register against their own neighbours, so Colombia sat on a Venezuela whose
+  border ran somewhere else and grey showed through the join, and Türkiye had a
+  grey fringe along its whole coast. Borders only line up if both sides come
+  from the same generalisation. 110m is also too coarse for the small ones on
+  its own terms — it gave Trinidad and Tobago eight vertices and one island,
+  where 50m gives 38 and two.
+* **The context is culled to the frame and simplified; the catalogue is not.**
+  A 50m world is 1MB. Nothing outside the view box is ever drawn, so Patagonia,
+  the Arctic and the Pacific are dropped at build time; backdrop islands under
+  a square pixel go too, and the rest is Douglas-Peucker simplified at 0.4
+  units, under half a pixel at the widths this is drawn at. That brings it to
+  238KB, 85KB gzipped — slightly less than the mixed-resolution build it
+  replaces. Catalogue countries keep every vertex and are written at two
+  decimals rather than one, because on a country 2.4 units across a 0.1 grid is
+  itself a generalisation.
 * **A dilated country at zero is hatched, not a grey disc.** Zero is a hatch
   everywhere else on the map, so the small countries were the one place it read
   as a category of its own, sitting next to hatched neighbours. A stroke takes a
@@ -178,14 +181,24 @@ without Node, which is why both are here.
 **Last verified:** 15 November 2026 — gate clean at 320/768/1200px, legend
 checked in all 149 states (every band and every occupation: never fewer than
 three classes, no duplicate class labels), state
-exercise clean (72 checks, including the country breakdown, its tooltips, the
-two-layer Escape, the frame-aware enlargement, the shaped selection outline and
-the hatch and ring scaling), control audit clean at
+exercise clean (71 checks, including the country breakdown, its tooltips, the
+two-layer Escape, the invisible hit target, and the spill test below), control
+audit clean at
 320/390/700/768px, no console errors, frame
 grows and shrinks. Published site checked at
 <https://center-for-global-development.github.io/tbb-candidates-map/>: every
 asset serves, 26 catalogue countries and 7 gold rings render, default total
 186,944, no failed requests.
+
+**The spill test.** `qa/exercise.py` samples strictly interior points of all 26
+countries and checks that none falls inside another country or inside the
+context path. It is written in screen space on purpose: `isPointInFill` works in
+the element's own user space, *before* its transform, so a version written in
+user space silently checks the payload rather than the picture — it passed with
+the 2.2x enlargement put back, which is the exact defect it exists to catch.
+Only strictly interior points count, because neighbours share a border and both
+polygons contain it. Verified against a negative control: clean as shipped,
+and it reports the overlaps as soon as an enlargement is restored.
 
 **Carried by this README, not by the figure's note.** The note was cut to four
 sentences on request (source, first-phase countries, MAC Annex 4, the SOC match),

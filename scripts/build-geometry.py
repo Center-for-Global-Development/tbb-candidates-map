@@ -117,17 +117,21 @@ def unwrap(ring):
     return [(lon + shift, lat) for lon, lat in out] if shift else out
 
 
-# Two resolutions: 50m for the countries that carry data, 110m for the rest.
+# One resolution for the whole map. Mixing them was a mistake: a catalogue
+# country drawn at 50m over a 110m world does not register against its own
+# neighbours, so Colombia sat on a Venezuela whose border ran somewhere else
+# and grey showed through the join. Borders only line up if both sides come
+# from the same generalisation.
 coarse = geometries(load("countries-110m.json"))
 fine = geometries(load("countries-50m.json"))
 missing_fine = sorted(set(CATALOGUE) - set(fine))
 assert not missing_fine, ["no 50m geometry for: " + ", ".join(CATALOGUE[m] for m in missing_fine)]
 
 feats = []
-for gid in sorted(set(coarse) | (set(fine) & set(CATALOGUE))):
+for gid in sorted(set(fine)):
     if gid in DROP:
         continue
-    src = fine if gid in CATALOGUE else coarse
+    src = fine
     if gid not in src:
         continue
     feats.append({"id": gid, "name": src[gid]["name"], "rings": src[gid]["rings"]})
@@ -151,12 +155,60 @@ def to_px(lon, lat):
     return (x - x0) * k + PAD, (y1 - y) * k + PAD   # flip y
 
 
-def path_d(rings, nd=1):
+def to_px_ring(r):
+    return [to_px(lon, lat) for lon, lat in r]
+
+
+def ring_area(p):
+    """Shoelace area of a projected ring, in square frame units."""
+    return abs(sum(p[i][0] * p[i - 1][1] - p[i - 1][0] * p[i][1]
+                   for i in range(len(p)))) / 2
+
+
+def simplify(p, tol):
+    """Douglas-Peucker on a projected ring, tolerance in frame units.
+
+    Only the context is simplified. At 50m the backdrop carries far more
+    detail than it can show: a 0.4-unit tolerance is under half a pixel at the
+    widths this figure is drawn at, so nothing visible is lost, and it takes
+    the payload down by roughly two thirds.
+    """
+    if len(p) < 4 or tol <= 0:
+        return p
+    keep = [False] * len(p)
+    keep[0] = keep[-1] = True
+    stack = [(0, len(p) - 1)]
+    while stack:
+        a, b = stack.pop()
+        if b <= a + 1:
+            continue
+        (ax, ay), (bx, by) = p[a], p[b]
+        dx, dy = bx - ax, by - ay
+        den = dx * dx + dy * dy
+        best, bi = -1.0, -1
+        for i in range(a + 1, b):
+            x, y = p[i]
+            if den == 0:
+                d = (x - ax) ** 2 + (y - ay) ** 2
+            else:
+                t = ((x - ax) * dx + (y - ay) * dy) / den
+                t = 0.0 if t < 0 else (1.0 if t > 1 else t)
+                ex, ey = ax + t * dx - x, ay + t * dy - y
+                d = ex * ex + ey * ey
+            if d > best:
+                best, bi = d, i
+        if best > tol * tol:
+            keep[bi] = True
+            stack.append((a, bi))
+            stack.append((bi, b))
+    return [q for q, f in zip(p, keep) if f]
+
+
+def px_path(rings, nd=1):
     out = []
-    for r in rings:
+    for p in rings:
         seg, prev = [], None
-        for lon, lat in r:
-            px, py = to_px(lon, lat)
+        for px, py in p:
             px, py = round(px, nd), round(py, nd)
             if prev == (px, py):
                 continue            # drop points that collapse at this precision
@@ -168,42 +220,11 @@ def path_d(rings, nd=1):
     return "".join(out)
 
 
-def ring_area_px(r):
-    p = [to_px(lon, lat) for lon, lat in r]
-    return abs(sum(p[i][0] * p[i - 1][1] - p[i - 1][0] * p[i][1] for i in range(len(p)))) / 2
-
-
-countries, context = {}, []
-for f in feats:
-    # Catalogue countries are written at two decimals. At one, the rounding is
-    # itself a generalisation: Trinidad and Tobago is 2.4 units across, so a
-    # 0.1 grid left it 24 possible x positions and threw away most of the 50m
-    # detail the moment it was written out. The context stays at one decimal.
-    d = path_d(f["rings"], nd=2 if f["id"] in CATALOGUE else 1)
-    if not d:
-        continue
-    if f["id"] in CATALOGUE:
-        big = max(f["rings"], key=ring_area_px)
-        bpx = [to_px(lon, lat) for lon, lat in big]
-        cx = sum(p[0] for p in bpx) / len(bpx)
-        cy = sum(p[1] for p in bpx) / len(bpx)
-        area = ring_area_px(big)
-        # The shorter side of the main landmass, in frame units. The figure
-        # dilates a country only as far as this falls short of a readable mark,
-        # so area alone is not enough: the Dominican Republic has five times
-        # Lebanon's area and needs a fraction of the stroke.
-        bw = max(p[0] for p in bpx) - min(p[0] for p in bpx)
-        bh = max(p[1] for p in bpx) - min(p[1] for p in bpx)
-        countries[f["id"]] = {"d": d, "cx": round(cx, 1), "cy": round(cy, 1),
-                              "a": round(area, 1), "m": round(min(bw, bh), 1),
-                              "x": round(max(bw, bh), 1)}
-    else:
-        context.append(d)
-
-missing = sorted(set(CATALOGUE) - set(countries))
-assert not missing, ["no geometry for: " + ", ".join(CATALOGUE[m] for m in missing)]
-
 # ---- the frame the figure actually shows -----------------------------------
+# Computed before the paths are written, because the context is culled against
+# it: nothing outside the frame is ever drawn, so carrying Patagonia, the
+# Arctic and the Pacific was paying for geometry no reader can see.
+#
 # Derived from the catalogue's own extent rather than kept as hand-tuned
 # constants in the figure, so a rebuild can never leave the view box pointing at
 # the wrong part of a re-scaled map. MARGIN is the breathing space around the
@@ -225,6 +246,55 @@ elif vw / vh > MAX_ASPECT:
 vx = (cx0 + cx1) / 2 - vw / 2
 vy = (cy0 + cy1) / 2 - vh / 2
 VIEW = {"x": round(vx, 1), "y": round(vy, 1), "w": round(vw, 1), "h": round(vh, 1)}
+
+CULL = 8.0          # keep a little beyond the frame, for strokes and rounding
+VX0, VY0 = VIEW["x"] - CULL, VIEW["y"] - CULL
+VX1 = VIEW["x"] + VIEW["w"] + CULL
+VY1 = VIEW["y"] + VIEW["h"] + CULL
+
+
+def offscreen(p):
+    return (max(q[0] for q in p) < VX0 or min(q[0] for q in p) > VX1
+            or max(q[1] for q in p) < VY0 or min(q[1] for q in p) > VY1)
+
+
+# The context is a backdrop: an island it would draw smaller than a pixel is
+# noise. The catalogue keeps everything down to a speck, because Tobago is one.
+CTX_TOL, CTX_MIN_AREA, CAT_MIN_AREA = 0.4, 1.2, 0.05
+
+countries, context = {}, []
+for f in feats:
+    cat = f["id"] in CATALOGUE
+    rings = [to_px_ring(r) for r in f["rings"]]
+    if cat:
+        rings = [p for p in rings if ring_area(p) >= CAT_MIN_AREA]
+    else:
+        rings = [simplify(p, CTX_TOL) for p in rings
+                 if ring_area(p) >= CTX_MIN_AREA and not offscreen(p)]
+    if not rings:
+        continue
+    # Catalogue countries are written at two decimals. At one, the rounding is
+    # itself a generalisation: Trinidad and Tobago is 2.4 units across, so a
+    # 0.1 grid left it 24 possible x positions and threw away most of the 50m
+    # detail the moment it was written out. The context stays at one decimal.
+    d = px_path(rings, nd=2 if cat else 1)
+    if not d:
+        continue
+    if cat:
+        big = max(rings, key=ring_area)
+        cx = sum(q[0] for q in big) / len(big)
+        cy = sum(q[1] for q in big) / len(big)
+        bw = max(q[0] for q in big) - min(q[0] for q in big)
+        bh = max(q[1] for q in big) - min(q[1] for q in big)
+        countries[f["id"]] = {"d": d, "cx": round(cx, 1), "cy": round(cy, 1),
+                              "a": round(ring_area(big), 1),
+                              "m": round(min(bw, bh), 1),
+                              "x": round(max(bw, bh), 1)}
+    else:
+        context.append(d)
+
+missing = sorted(set(CATALOGUE) - set(countries))
+assert not missing, ["no geometry for: " + ", ".join(CATALOGUE[m] for m in missing)]
 
 payload = {"w": round(W, 1), "h": round(H, 1), "view": VIEW,
            "context": "".join(context), "countries": countries}
