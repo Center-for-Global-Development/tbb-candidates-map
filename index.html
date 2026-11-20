@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Where are the skilled refugees the UK could recruit?</title>
-<link rel="stylesheet" href="shared/cgd-figure.css?v=20261120c">
-<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261120c">
+<link rel="stylesheet" href="shared/cgd-figure.css?v=20261120d">
+<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261120d">
 <style>
   /* Desktop: one control row — the occupation band, then the occupation.
      The band control carries the shortage list as a fifth option rather than a
@@ -19,28 +19,41 @@
   #bandToggle{display:flex}
   #bandToggle button{flex:1 1 auto}
 
+  /* The five bands stay on one row at every width. They were wrapping to two
+     because of a rule here, not because they did not fit: the full labels need
+     280px and there is more than that down to about 335px of panel. Below
+     that the labels shorten rather than the row breaking, which costs a line
+     of control bank — at a third of a laptop screen the controls were as tall
+     as the map. The full wording stays in aria-label either way. */
+  #bandToggle,.cgd-mobile-embed #bandToggle{flex-wrap:nowrap}
+  #bandToggle button,.cgd-mobile-embed #bandToggle button{flex:1 1 auto;min-width:0}
+  .b-short{display:none}
   @media (max-width:760px){
     .occ-control,.band-control{grid-column:1/-1}
     #bandToggle button{padding-inline:6px}
   }
-  @media (max-width:560px){
-    #bandToggle{flex-wrap:wrap}
-    #bandToggle button{flex:1 1 30%}
+  @media (max-width:384px){
+    .b-long{display:none}
+    .b-short{display:inline}
+    #bandToggle button{padding-inline:5px}
   }
   .cgd-mobile-embed .occ-control,
   .cgd-mobile-embed .band-control{grid-column:1/-1}
-  .cgd-mobile-embed #bandToggle{flex-wrap:wrap}
-  .cgd-mobile-embed #bandToggle button{flex:1 1 30%}
 
   /* Title above the key at every width: the two sit on separate rows so the
      figure does not shift when the subtitle or the key text changes length. */
   .panel-header{grid-template-columns:minmax(0,1fr);gap:4px}
   .legend-row{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
   .legend-row .panel-title{flex:1 1 auto;min-width:0;white-space:normal}
-  .legend-row select{flex:0 0 190px;width:190px;height:30px;min-height:30px;padding-top:3px;padding-bottom:3px}
+  /* 215px, not 190: "United Arab Emirates" needs 155px of text box and was
+     being cut at every width, including the widest. */
+  .legend-row select{flex:0 0 215px;width:215px;height:30px;min-height:30px;padding-top:3px;padding-bottom:3px}
+  /* Narrow: the select keeps the title's row instead of taking one of its own.
+     The title wraps into the space left over, which costs nothing, where a
+     full-width select cost a whole control row. */
   @media (max-width:600px){
-    .legend-row{flex-wrap:wrap}
-    .legend-row select{flex:1 1 100%;width:100%}
+    .legend-row{flex-wrap:nowrap}
+    .legend-row select{flex:0 1 190px;width:auto;min-width:104px}
   }
   .scale-legend{display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap;font-size:10.2px;color:var(--cgd-dark-gray)}
   .scale-legend .bin{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
@@ -48,6 +61,19 @@
   .scale-legend .chip.ho{background:#fff;border:2px solid var(--cgd-gold)}
 
   .map{position:relative;background:#F2F7F8;border:1px solid #EDF2F3;border-radius:10px;overflow:hidden}
+  /* On the map, not in the control bank: the bank is already the tallest thing
+     on a narrow screen and these must not add a row to it. */
+  .zoom-ctl{position:absolute;top:8px;left:8px;z-index:3;display:flex;flex-direction:column;gap:4px}
+  .zoom-ctl button{width:28px;height:28px;min-height:28px;display:flex;align-items:center;justify-content:center;
+    padding:0;border:1px solid var(--border,#D9E1E4);border-radius:7px;background:rgba(255,255,255,.94);
+    color:var(--cgd-teal);font:inherit;font-size:16px;line-height:1;font-weight:600;cursor:pointer}
+  .zoom-ctl button:hover{background:#fff;border-color:var(--cgd-light-teal)}
+  .zoom-ctl button:focus-visible{outline:2px solid var(--cgd-teal);outline-offset:1px}
+  .zoom-ctl button[disabled]{opacity:.4;cursor:default}
+  /* Where the map is short, a stacked column would run most of its height. */
+  @media (max-width:480px){.zoom-ctl{flex-direction:row}}
+  .map.panning{cursor:grabbing}
+  .map.panning .country,.map.panning .hit{cursor:grabbing}
   .map svg{display:block;width:100%;height:auto;touch-action:manipulation}
   .context{fill:#E9EBEC;stroke:#fff;stroke-width:.5;vector-effect:non-scaling-stroke;pointer-events:none}
   /* A darker boundary than the context's white, so the 26 catalogue countries
@@ -148,11 +174,11 @@
     <div class="control-group band-control">
       <div class="control-label" id="bandLabel">Occupations</div>
       <div class="segmented" id="bandToggle" role="group" aria-labelledby="bandLabel">
-        <button type="button" data-band="ALL" aria-pressed="true">All</button>
-        <button type="button" data-band="RQF 6+" aria-pressed="false">RQF&nbsp;6+</button>
-        <button type="button" data-band="RQF 3-5" aria-pressed="false">RQF&nbsp;3&#8211;5</button>
-        <button type="button" data-band="RQF 1-2" aria-pressed="false">RQF&nbsp;1&#8211;2</button>
-        <button type="button" data-band="TSL" aria-pressed="false">Shortage&nbsp;list</button>
+        <button type="button" data-band="ALL" aria-pressed="true" aria-label="All occupations"><span class="b-long">All</span><span class="b-short">All</span></button>
+        <button type="button" data-band="RQF 6+" aria-pressed="false" aria-label="RQF 6 and above"><span class="b-long">RQF&nbsp;6+</span><span class="b-short">6+</span></button>
+        <button type="button" data-band="RQF 3-5" aria-pressed="false" aria-label="RQF 3 to 5"><span class="b-long">RQF&nbsp;3&#8211;5</span><span class="b-short">3&#8211;5</span></button>
+        <button type="button" data-band="RQF 1-2" aria-pressed="false" aria-label="RQF 1 to 2"><span class="b-long">RQF&nbsp;1&#8211;2</span><span class="b-short">1&#8211;2</span></button>
+        <button type="button" data-band="TSL" aria-pressed="false" aria-label="Shortage list"><span class="b-long">Shortage&nbsp;list</span><span class="b-short">Shortage</span></button>
       </div>
     </div>
     <div class="control-group occ-control">
@@ -170,7 +196,15 @@
       <div class="scale-legend" id="scaleLegend"></div>
     </div>
     <div class="chart-area">
-      <div class="map" id="map"></div>
+      <div class="map" id="map">
+        <div class="zoom-ctl" id="zoomCtl">
+          <button type="button" id="zoomIn" aria-label="Zoom in" data-tip="Zoom in">+</button>
+          <button type="button" id="zoomOut" aria-label="Zoom out" data-tip="Zoom out">&#8722;</button>
+          <button type="button" id="zoomReset" aria-label="Reset the view" data-tip="Reset the view" hidden>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v5h5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+      </div>
       <div class="cmap-backdrop" id="drill" hidden>
       <div class="cmap-card" role="dialog" aria-modal="true" aria-labelledby="drillTitle">
         <div class="cmap-top">
@@ -181,11 +215,11 @@
           <button type="button" class="cmap-close" id="drillClose" aria-label="Close">&#215;</button>
         </div>
         <div class="segmented" id="occBand" role="group" aria-label="Skill level within this country">
-          <button type="button" data-band="ALL" aria-pressed="true">All</button>
-          <button type="button" data-band="RQF 6+" aria-pressed="false">RQF&nbsp;6+</button>
-          <button type="button" data-band="RQF 3-5" aria-pressed="false">RQF&nbsp;3&#8211;5</button>
-          <button type="button" data-band="RQF 1-2" aria-pressed="false">RQF&nbsp;1&#8211;2</button>
-          <button type="button" data-band="TSL" aria-pressed="false">Shortage&nbsp;list</button>
+          <button type="button" data-band="ALL" aria-pressed="true" aria-label="All occupations"><span class="b-long">All</span><span class="b-short">All</span></button>
+          <button type="button" data-band="RQF 6+" aria-pressed="false" aria-label="RQF 6 and above"><span class="b-long">RQF&nbsp;6+</span><span class="b-short">6+</span></button>
+          <button type="button" data-band="RQF 3-5" aria-pressed="false" aria-label="RQF 3 to 5"><span class="b-long">RQF&nbsp;3&#8211;5</span><span class="b-short">3&#8211;5</span></button>
+          <button type="button" data-band="RQF 1-2" aria-pressed="false" aria-label="RQF 1 to 2"><span class="b-long">RQF&nbsp;1&#8211;2</span><span class="b-short">1&#8211;2</span></button>
+          <button type="button" data-band="TSL" aria-pressed="false" aria-label="Shortage list"><span class="b-long">Shortage&nbsp;list</span><span class="b-short">Shortage</span></button>
         </div>
         <div class="occ-list" id="drillList"></div>
       </div>
@@ -197,10 +231,10 @@
   <div class="tooltip" id="tooltip" hidden></div>
 </div>
 
-<script src="shared/dom.js?v=20261120c"></script>
-<script src="shared/chart-core.js?v=20261120c"></script>
-<script src="data/world-paths.js?v=20261120c"></script>
-<script src="data/tbb-candidates-data.js?v=20261120c"></script>
+<script src="shared/dom.js?v=20261120d"></script>
+<script src="shared/chart-core.js?v=20261120d"></script>
+<script src="data/world-paths.js?v=20261120d"></script>
+<script src="data/tbb-candidates-data.js?v=20261120d"></script>
 <script>
 (() => {
   'use strict';
@@ -300,6 +334,25 @@
   // leave the frame pointing at the wrong part of a re-scaled map.
   const VIEW = GEO.view;
 
+  // ---- zoom ----------------------------------------------------------------
+  // The figure was built without zoom on the grounds that nothing was out of
+  // reach once the frame was fitted and the small countries enlarged. The
+  // enlargement is gone — countries are drawn true, so Lebanon really is a few
+  // pixels — and that makes zoom the honest way to look closely at a crowded
+  // region rather than a control that earns nothing.
+  //
+  // Held as a centre and a factor rather than a box, so clamping stays simple
+  // and a resize cannot leave the window half outside the map.
+  const ZMAX = 12;
+  const Z = { k: 1, cx: VIEW.x + VIEW.w / 2, cy: VIEW.y + VIEW.h / 2 };
+  const r2 = n => Math.round(n * 100) / 100;
+  function box() {
+    const w = VIEW.w / Z.k, h = VIEW.h / Z.k;
+    const cx = Math.min(Math.max(Z.cx, VIEW.x + w / 2), VIEW.x + VIEW.w - w / 2);
+    const cy = Math.min(Math.max(Z.cy, VIEW.y + h / 2), VIEW.y + VIEW.h - h / 2);
+    return { x: r2(cx - w / 2), y: r2(cy - h / 2), w: r2(w), h: r2(h) };
+  }
+
   const RQF_LABEL = { 'RQF 6+': 'RQF 6+', 'RQF 3-5': 'RQF 3–5', 'RQF 1-2': 'RQF 1–2' };
   const HO_COUNT = COUNTRIES.filter(c => c.ho).length;
   const HO_WORD = { 5: 'five', 6: 'six', 7: 'seven', 8: 'eight' }[HO_COUNT] || String(HO_COUNT);
@@ -310,6 +363,7 @@
   const S = { band: 'ALL', occ: 'ALL', selected: null };
 
   const mapEl = document.getElementById('map');
+  const zoomCtl = document.getElementById('zoomCtl');
   const tooltip = document.getElementById('tooltip');
   const occSelect = document.getElementById('occSelect');
   const countrySelect = document.getElementById('countrySelect');
@@ -346,12 +400,25 @@
     if (!names.includes(S.occ)) S.occ = 'ALL';
     occSelect.value = S.occ;
   }
+  // The placeholder follows the same breakpoint as the stylesheet, so the
+  // wording and the width it has to fit in can never disagree. "Find a
+  // country…" does not fit the narrow select and was being cut to "Find a
+  // coun…", which no audit catches: a select renders its own text, so there is
+  // no child element for the clipped-text check to find.
+  const narrowSelect = () => window.matchMedia('(max-width:480px)').matches;
+  // Below 600px the select shares the title's row and is too narrow to show a
+  // country's name without cutting it. There it goes back to its placeholder
+  // once a country is chosen: it is a way in, not a readout. Nothing is lost —
+  // the chosen country is outlined on the map and named at the top of the card
+  // that opens. Above 600px it reflects the selection, as before.
+  const findOnly = () => window.matchMedia('(max-width:600px)').matches;
   function fillCountrySelect() {
     countrySelect.replaceChildren(
-      element('option', { text: 'Find a country…', attributes: { value: '' } }),
+      element('option', { text: narrowSelect() ? 'Country…' : 'Find a country…',
+                          attributes: { value: '' } }),
       ...COUNTRIES.map(c => element('option', { text: c.name + (c.ho ? ' ★' : ''), attributes: { value: c.id } }))
     );
-    countrySelect.value = S.selected || '';
+    countrySelect.value = findOnly() ? '' : (S.selected || '');
   }
   function syncControls() {
     bandToggle.querySelectorAll('button').forEach(b => {
@@ -366,10 +433,13 @@
     lastWidth = width || lastWidth;
     const v = view(S);
     const ths = thresholds(v.totals);
-    const k = lastWidth / VIEW.w;          // frame units -> css px at this width
+    // Scale comes from the window actually shown, so the hit pads shrink and
+    // the gold rings reach full width as the reader zooms in.
+    const bx = box();
+    const k = lastWidth / bx.w;            // frame units -> css px as drawn
 
     const svg = svgEl('svg', {
-      viewBox: `${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`,
+      viewBox: `${bx.x} ${bx.y} ${bx.w} ${bx.h}`,
       preserveAspectRatio: 'xMidYMid meet',
       role: 'img',
       'aria-label': summaryText(v)
@@ -421,12 +491,12 @@
     svg.addEventListener('click', e => {
       if (e.target === svg || e.target.classList.contains('context')) clearSelection();
     });
-    mapEl.replaceChildren(svg);
+    mapEl.replaceChildren(svg, zoomCtl);   // the controls are not part of the map
 
     renderLegend(ths);
     renderNotes(v);
     occSelect.value = S.occ;
-    countrySelect.value = S.selected || '';
+    countrySelect.value = findOnly() ? '' : (S.selected || '');
   }
 
   function renderLegend(ths) {
@@ -686,13 +756,126 @@
   syncControls();
   fillOccSelect(view(S).pool);
   fillCountrySelect();
+  // Rebuilt when the layout crosses the breakpoint, not on every resize tick:
+  // replacing the options closes an open dropdown, so it must happen only when
+  // the wording actually has to change.
+  window.matchMedia('(max-width:480px)')
+    .addEventListener('change', () => fillCountrySelect());
   render(mapEl.getBoundingClientRect().width || 960);
   window.CGD_READY = true;   // the QA gate waits for this
+  // ---- zoom and pan --------------------------------------------------------
+  // Panning only moves the window, so it sets the viewBox directly; zooming
+  // changes the scale that the hit pads and the gold rings are sized from, so
+  // it re-renders. A render is about 3ms, and zoom arrives in discrete steps.
+  function applyPan() {
+    const svg = mapEl.querySelector('svg');
+    if (!svg) return;
+    const b = box();
+    svg.setAttribute('viewBox', `${b.x} ${b.y} ${b.w} ${b.h}`);
+  }
+  function setZoom(k, anchor) {
+    const next = Math.min(ZMAX, Math.max(1, k));
+    if (next === Z.k) return;
+    if (anchor) {
+      // Keep the point under the cursor where it is: the reader zooms into
+      // what they are looking at, not into the middle of the frame.
+      const b = box();
+      const ux = b.x + (anchor.x / mapEl.clientWidth) * b.w;
+      const uy = b.y + (anchor.y / mapEl.clientHeight) * b.h;
+      Z.cx = ux - (ux - Z.cx) * (Z.k / next);
+      Z.cy = uy - (uy - Z.cy) * (Z.k / next);
+    }
+    Z.k = next;
+    tooltip.hidden = true;
+    syncZoom();
+    render();
+  }
+  function syncZoom() {
+    document.getElementById('zoomIn').disabled = Z.k >= ZMAX;
+    document.getElementById('zoomOut').disabled = Z.k <= 1;
+    document.getElementById('zoomReset').hidden = Z.k <= 1;
+    // At rest the page must still scroll over the map on a touch screen.
+    // Once zoomed, a drag is a pan, so the gesture becomes ours.
+    mapEl.style.touchAction = Z.k > 1 ? 'none' : 'manipulation';
+  }
+  function resetZoom() {
+    Z.k = 1;
+    Z.cx = VIEW.x + VIEW.w / 2;
+    Z.cy = VIEW.y + VIEW.h / 2;
+    syncZoom();
+    render();
+  }
+  document.getElementById('zoomIn').addEventListener('click', () => setZoom(Z.k * 1.6));
+  document.getElementById('zoomOut').addEventListener('click', () => setZoom(Z.k / 1.6));
+  document.getElementById('zoomReset').addEventListener('click', resetZoom);
+
+  // Ctrl or cmd held, deliberately: a bare wheel over an embedded figure
+  // traps the reader's scroll on the page it is embedded in.
+  mapEl.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const r = mapEl.getBoundingClientRect();
+    setZoom(Z.k * (e.deltaY < 0 ? 1.18 : 1 / 1.18),
+            { x: e.clientX - r.left, y: e.clientY - r.top });
+  }, { passive: false });
+
+  const pointers = new Map();
+  let panFrom = null, pinchFrom = null, moved = 0;
+  mapEl.addEventListener('pointerdown', e => {
+    if (e.target.closest('.zoom-ctl')) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    moved = 0;
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinchFrom = { d: Math.hypot(a.x - b.x, a.y - b.y), k: Z.k };
+      panFrom = null;
+    } else if (pointers.size === 1 && (Z.k > 1 || e.pointerType !== 'touch')) {
+      panFrom = { x: e.clientX, y: e.clientY, cx: Z.cx, cy: Z.cy };
+    }
+  });
+  mapEl.addEventListener('pointermove', e => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinchFrom && pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinchFrom.d > 0) {
+        const r = mapEl.getBoundingClientRect();
+        setZoom(pinchFrom.k * (d / pinchFrom.d),
+                { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top });
+      }
+      return;
+    }
+    if (!panFrom || Z.k <= 1) return;
+    const dx = e.clientX - panFrom.x, dy = e.clientY - panFrom.y;
+    moved = Math.max(moved, Math.hypot(dx, dy));
+    if (moved < 4) return;
+    mapEl.classList.add('panning');
+    tooltip.hidden = true;
+    const b = box();
+    Z.cx = panFrom.cx - dx * (b.w / mapEl.clientWidth);
+    Z.cy = panFrom.cy - dy * (b.h / mapEl.clientHeight);
+    applyPan();
+  });
+  const endPointer = e => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchFrom = null;
+    if (pointers.size === 0) { panFrom = null; mapEl.classList.remove('panning'); }
+  };
+  mapEl.addEventListener('pointerup', endPointer);
+  mapEl.addEventListener('pointercancel', endPointer);
+  // A drag that moved is a pan, not a click on a country.
+  mapEl.addEventListener('click', e => {
+    if (moved >= 4) { e.stopPropagation(); e.preventDefault(); moved = 0; }
+  }, true);
+
+  syncZoom();
   C.observeInlineSize(mapEl, w => render(w));
-  window.TBB_MAP = { state: S, drill: D, view: () => view(S), universe: () => universe(S),
+  window.TBB_MAP = { state: S, drill: D, zoom: Z, box, setZoom, resetZoom,
+                     view: () => view(S), universe: () => universe(S),
                      render, open: selectCountry, close: closeDrill };
 })();
 </script>
-<script src="shared/cgd-embed.js?v=20261120c"></script>
+<script src="shared/cgd-embed.js?v=20261120d"></script>
 </body>
 </html>

@@ -36,7 +36,8 @@ countries looked at, the second survives if the two are ever separated again.
 ## Deliberately not instrumented
 
 Hover, pointer movement, focus, tooltip opening, scrolling the occupation list,
-closing the breakdown, resize, fullscreen and deselection. These are not
+closing the breakdown, resize, fullscreen, deselection, and zoom or pan of any
+kind (buttons, drag, pinch, wheel). These are not
 committed actions; sending them would bury the signal and inflate event volume.
 `action_value` is bounded: at most 144 occupation names and 26 country names,
 both drawn from the payload, so cardinality cannot grow with traffic.

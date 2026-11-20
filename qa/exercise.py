@@ -295,14 +295,57 @@ with sync_playwright() as p:
     page.keyboard.press("Escape")
     page.keyboard.press("Escape")
 
-    print("the hatch, the gold ring and the zero mark hold their size")
-    # All three are defined in frame units, so left alone they scale with the
-    # viewBox. The hatch became a sub-pixel line at 320px, and the gold ring
-    # took a third of Bangladesh's narrow side and most of its colour with it.
+    print("zoom")
     PITCH = ("() => { const p = document.querySelector('#zeroHatch');"
              " const svg = document.querySelector('#map svg');"
              " const k = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;"
              " return Math.round(parseFloat(p.getAttribute('width')) * k * 10) / 10; }")
+    VB = "() => document.querySelector('#map svg').getAttribute('viewBox')"
+    K = "() => window.TBB_MAP.zoom.k"
+    rest = page.evaluate(VB)
+    pads_at_rest = page.evaluate("() => document.querySelectorAll('#map .hit').length")
+    check("starts at rest", page.evaluate(K), 1)
+    check("and some countries need a hit pad there", pads_at_rest > 0, True)
+    check("zoom out is not offered at rest",
+          page.evaluate("() => document.getElementById('zoomOut').disabled"), True)
+    check("nor is reset",
+          page.evaluate("() => document.getElementById('zoomReset').hidden"), True)
+    # At rest the page must still scroll over the map on a touch screen; an
+    # embedded figure that eats the scroll is worse than one that cannot zoom.
+    check("the page can still be scrolled over the map",
+          page.evaluate("() => document.getElementById('map').style.touchAction"), "manipulation")
+    page.click("#zoomIn")
+    page.click("#zoomIn")
+    page.wait_for_timeout(200)
+    check("zooming in changes the window", page.evaluate(VB) != rest, True)
+    check("and the gesture becomes ours",
+          page.evaluate("() => document.getElementById('map').style.touchAction"), "none")
+    check("reset is offered",
+          page.evaluate("() => document.getElementById('zoomReset').hidden"), False)
+    # The scale everything else is sized from has to follow the zoom, or the
+    # hit pads stay fat and the rings stay thin while the map gets bigger.
+    check("the hit pads stand down as the countries grow",
+          page.evaluate("() => document.querySelectorAll('#map .hit').length") < pads_at_rest, True)
+    check("the hatch still holds its pitch",
+          page.evaluate(PITCH), 5)
+    before = page.evaluate(VB)
+    page.mouse.move(500, 380)
+    page.mouse.down()
+    page.mouse.move(380, 320, steps=10)
+    page.mouse.up()
+    page.wait_for_timeout(200)
+    check("dragging pans", page.evaluate(VB) != before, True)
+    check("and does not select the country under the pointer",
+          page.evaluate(SEL), None)
+    page.click("#zoomReset")
+    page.wait_for_timeout(200)
+    check("reset returns exactly to the fitted frame", page.evaluate(VB), rest)
+    check("and to rest", page.evaluate(K), 1)
+
+    print("the hatch, the gold ring and the zero mark hold their size")
+    # All three are defined in frame units, so left alone they scale with the
+    # viewBox. The hatch became a sub-pixel line at 320px, and the gold ring
+    # took a third of Bangladesh's narrow side and most of its colour with it.
     page.select_option("#occSelect", "Meteorologist")
     check("the hatch is 5px on a laptop", page.evaluate(PITCH), 5)
     check("every country at zero is hatched, enlarged or not",

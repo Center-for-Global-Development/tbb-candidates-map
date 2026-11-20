@@ -24,7 +24,8 @@ key and the tooltip, and the blog text carries the headline.
 |---|---|
 | Occupations: All / RQF 6+ / RQF 3–5 / RQF 1–2 / Shortage list | restricts the pool to one band. One control, not a skill filter plus a shortage-list checkbox: every shortage-list occupation is RQF 3–5, so the two could never say anything together that either did not say alone, and the checkbox spent half its life disabled |
 | Occupation | restricts to one occupation. Rebuilt from the band above, and reset to "all" when the band removes the chosen one |
-| Click a country / press Enter on one / Find a country | outlines it and opens its occupation breakdown |
+| Click a country / press Enter on one / Find a country | outlines it and opens its occupation breakdown. Below 600px the select returns to its placeholder afterwards: it is too narrow there to show a country's name without cutting it, and it is a way in rather than a readout |
+| Zoom in / out / reset, drag, pinch, ctrl-wheel | moves the window over the map. Nothing else depends on it |
 | The band control inside that breakdown | re-splits that one country's pool. It is the card's own: it starts from the map's band and changes nothing underneath |
 
 Colour is candidate count; a gold ring marks the seven countries named in the
@@ -87,6 +88,29 @@ not use (the country × occupation grid rather than the long list):
 * Jordan, all mapped occupations: **35,483**
 * All countries, shortage-list occupations: **17,401**
 
+## Controls on a narrow screen
+
+At a third of a laptop screen the control bank was as tall as the map. Two
+things cost a row each, neither of them necessary:
+
+* **The five bands wrapped to two rows.** They were not too wide - the full
+  labels need 280px and there is more than that down to about 335px of panel.
+  A rule here was forcing it. They now stay on one row at every width, and below
+  384px the labels shorten (`RQF 6+` to `6+`, `Shortage list` to `Shortage`)
+  rather than the row breaking. The full wording stays in `aria-label`.
+* **The country select took a row of its own.** It now keeps the title's row and
+  the title wraps into what is left, which costs nothing.
+
+Measured, controls plus panel header: **286px to 225px at 480px wide**, and
+306px to 263px at 320px.
+
+Two sizing bugs turned up on the way, both older than this change.
+`United Arab Emirates` needs 155px of text box and the select gave it 146px at
+*every* width, so the longest names had always been cut; the select is 215px
+where there is room, and a finder below 600px. No audit catches that, because a
+`<select>` draws its own text and there is no child element for the clipped-text
+check to find.
+
 ## Design decisions worth not "fixing"
 
 * **Shading bands are recalculated for the occupations shown.** Counts run from
@@ -132,10 +156,65 @@ not use (the country × occupation grid rather than the long list):
   replaces. Catalogue countries keep every vertex and are written at two
   decimals rather than one, because on a country 2.4 units across a 0.1 grid is
   itself a generalisation.
-* **A dilated country at zero is hatched, not a grey disc.** Zero is a hatch
-  everywhere else on the map, so the small countries were the one place it read
-  as a category of its own, sitting next to hatched neighbours. A stroke takes a
-  pattern paint just as a fill does.
+* **The zero hatch keeps a constant 5px pitch.** It is defined in frame units,
+  so left alone it scales with the viewBox: a 6.5px pitch on a laptop became
+  1.9px with a sub-pixel line at 320px, which aliases into flat grey and stops
+  reading as a hatch. Dividing by the on-screen scale holds it, at every width
+  and at every zoom, and keeps it in step with the legend's own swatch.
+* **The gold first-phase ring thins on a narrow country in a small frame.** It
+  is centred on the boundary, so it eats into the fill from both sides - and the
+  fill is the data. A flat 1.9px is 5-11% of a country's narrow side on a laptop
+  but a third of Bangladesh's at 320px. It is a tenth of the narrow side, capped
+  at 1.9px and floored at 0.6px. Bangladesh stays mostly gold at 320px and
+  thinning cannot fix it: hiding its own ring moves it from 85% to 81%, hiding
+  *India's* moves it to 40%. What surrounds Bangladesh is India's ring.
+* **No country labels.** Six of the nine largest pools sit in one cluster
+  (Turkiye, Lebanon, Jordan, Egypt, Iraq, Saudi Arabia) and the top-ranked set
+  changes with every filter, so no label layout survives every state. Every
+  country is reachable by hover, tap, keyboard and the "Find a country" select,
+  and clicking one gives its numbers in full. A deliberate departure from 13.7.
+* **The frame is fitted, not the whole globe.** The catalogue runs from
+  Guatemala to Indonesia and from Turkiye to South Africa; the empty Pacific and
+  the Arctic cost about a third of the frame. The view box is computed by the
+  build from the catalogue's own extent, so a rebuild cannot leave a hand-tuned
+  frame pointing at the wrong part of a re-scaled map.
+* **Antimeridian rings are un-wrapped at build time.** Fiji is stored with its
+  eastern vertices near +180 and its western ones near -180; projected as given,
+  the edge between them was drawn as a straight line across the South Pacific.
+  The build walks each ring and keeps every step under 180 degrees.
+* **The horizontal extent is the projection's, not the data's.** Taking it from
+  the data made the scale depend on whichever land touched the edge - which was
+  Fiji's wrapped polygon, so fixing the line above silently resized the whole
+  map.
+* **The country breakdown is an overlay on a laptop and a section on a phone.**
+  At 320px the map is about 150px tall, so a card floated over it has nowhere to
+  go. Below 620px the same card is laid out under the map instead and the frame
+  grows to fit. Same content, same controls - not a shrunken desktop overlay.
+* **The breakdown ignores the map's occupation filter.** A list of occupations
+  filtered to one occupation is a list of one row.
+* **Hover is a halo, not a colour change.** The fill is the data and the gold
+  ring means "first phase", so neither can be borrowed to say "your pointer is
+  here". A soft shadow belongs to no scale and reads the same over the palest
+  class and the darkest.
+* **The occupation rows carry one tooltip line, and only under "All".** The row
+  already shows the occupation and the count; under any single band every row
+  shares that band. What is left worth saying is the skill level of a mixed
+  list, so that is all the tooltip says.
+* **Selection traces the country.** An earlier version put a circle on the small
+  ones, which threw the shape away and read as a bullseye dropped on the map.
+* **Zoom, as of the build that stopped enlarging countries.** The figure shipped
+  without it on the grounds that nothing was out of reach once the frame was
+  fitted and the small countries enlarged. The enlargement is gone - countries
+  are drawn true, so Lebanon really is a few pixels - and that makes zoom the
+  honest way to look closely rather than a control that earns nothing. Buttons,
+  drag to pan, pinch, and ctrl/cmd with the wheel. **Not a bare wheel**: this is
+  an iframe in an article, and a figure that eats the reader's scroll is worse
+  than one that cannot zoom. For the same reason a touch drag only pans once
+  zoomed in; at rest the page scrolls over the map as usual. The controls sit on
+  the map, not in the control bank, because the bank is already the tallest
+  thing on a narrow screen. Everything sized from the on-screen scale - hit
+  pads, gold rings, the hatch - is computed from the window actually shown, so
+  it all follows the zoom. Replaces the earlier 13.5 departure.
 * **Escape holds.** Re-rendering puts a new node under a stationary cursor and
   the browser fires `pointerenter` without the pointer moving, so Escape used to
   hide the tooltip and the next frame brought it back. Dismissal now holds until
@@ -181,9 +260,9 @@ without Node, which is why both are here.
 **Last verified:** 15 November 2026 — gate clean at 320/768/1200px, legend
 checked in all 149 states (every band and every occupation: never fewer than
 three classes, no duplicate class labels), state
-exercise clean (71 checks, including the country breakdown, its tooltips, the
-two-layer Escape, the invisible hit target, and the spill test below), control
-audit clean at
+exercise clean (85 checks, including the country breakdown, its tooltips, the
+two-layer Escape, the invisible hit target, zoom and pan, and the spill test
+below), control audit clean at
 320/390/700/768px, no console errors, frame
 grows and shrinks. Published site checked at
 <https://center-for-global-development.github.io/tbb-candidates-map/>: every
