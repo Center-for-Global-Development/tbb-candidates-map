@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Where are the skilled refugees the UK could recruit?</title>
-<link rel="stylesheet" href="shared/cgd-figure.css?v=20261120a">
-<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261120a">
+<link rel="stylesheet" href="shared/cgd-figure.css?v=20261120b">
+<link rel="stylesheet" href="shared/cgd-responsive.css?v=20261120b">
 <style>
   /* Desktop: one control row — the occupation band, then the occupation.
      The band control carries the shortage list as a fifth option rather than a
@@ -194,10 +194,10 @@
   <div class="tooltip" id="tooltip" hidden></div>
 </div>
 
-<script src="shared/dom.js?v=20261120a"></script>
-<script src="shared/chart-core.js?v=20261120a"></script>
-<script src="data/world-paths.js?v=20261120a"></script>
-<script src="data/tbb-candidates-data.js?v=20261120a"></script>
+<script src="shared/dom.js?v=20261120b"></script>
+<script src="shared/chart-core.js?v=20261120b"></script>
+<script src="data/world-paths.js?v=20261120b"></script>
+<script src="data/tbb-candidates-data.js?v=20261120b"></script>
 <script>
 (() => {
   'use strict';
@@ -478,6 +478,8 @@
     const link = (href, text) => element('a', {
       text, attributes: { href, target: '_blank', rel: 'noopener noreferrer' }
     });
+    const HO = 'https://www.gov.uk/government/publications/'
+      + 'lead-sponsors-refugee-eligibility-criteria/lead-sponsors-refugee-eligibility-criteria';
     const MAC = 'https://www.gov.uk/government/publications/temporary-shortage-list-stage-2-report';
     const SOC = 'https://www.ons.gov.uk/methodology/classificationsandstandards/'
       + 'standardoccupationalclassificationsoc/soc2020/'
@@ -486,8 +488,10 @@
       element('p', { attributes: { style: 'margin:0' } }, [
         element('strong', { text: 'Source: ' }),
         element('span', { text: 'Talent Beyond Boundaries catalogue of registered candidates. '
-          + 'First-phase countries from the Home Office’s 29 October 2026 announcement. '
-          + 'Skill levels and TSL status obtained from the Migration Advisory Committee’s ' }),
+          + 'First-phase countries from the Home Office’s ' }),
+        link(HO, '29 October 2026 announcement'),
+        element('span', { text: '. Skill levels and TSL status obtained from the '
+          + 'Migration Advisory Committee’s ' }),
         link(MAC, 'Temporary Shortage List stage 2 review (Annex 4)'),
         element('span', { text: ', via CGD’s indicative match of TBB’s occupation descriptions to ' }),
         link(SOC, 'SOC 2020 codes'),
@@ -692,6 +696,6 @@
                      render, open: selectCountry, close: closeDrill };
 })();
 </script>
-<script src="shared/cgd-embed.js?v=20261120a"></script>
+<script src="shared/cgd-embed.js?v=20261120b"></script>
 </body>
 </html>

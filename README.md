@@ -27,9 +27,19 @@ key and the tooltip, and the blog text carries the headline.
 | Click a country / press Enter on one / Find a country | outlines it and opens its occupation breakdown |
 | The band control inside that breakdown | re-splits that one country's pool. It is the card's own: it starts from the map's band and changes nothing underneath |
 
-Colour is candidate count; a gold ring marks the seven countries named for the
-first phase in the Home Office written statement of 29 October 2026
-(Bangladesh, Egypt, India, Kenya, Malaysia, Pakistan, Uganda).
+Colour is candidate count; a gold ring marks the seven countries named in the
+Home Office's *Lead sponsors: refugee eligibility criteria*, published 29 October
+2026: Bangladesh, India, Pakistan, Malaysia, Egypt, Uganda, Kenya. That guidance
+is where the figure's "first phase" comes from — it says the routes "will
+initially operate in" those seven.
+
+The ring means **the route operates from that country**, not that everyone
+counted there is eligible. The same guidance requires an applicant to be outside
+their country of nationality, recognised as a refugee by the relevant authority,
+and present and registered before 1 October 2026. The map counts people in TBB's
+catalogue by country of residence, which is the right denominator for "where
+could the UK recruit from", but it is not a count of eligible applicants, and the
+figure's note says so.
 
 ## Data
 
@@ -43,7 +53,8 @@ Built by the scripts in `scripts/`, from two workbooks held outside this repo
 either workbook changes; do not hand-edit the generated files.
 
 **Sources.** Candidate counts: Talent Beyond Boundaries talent catalogue, supplied
-to CGD. Skill level and shortage-list status: Migration Advisory Committee,
+to CGD. First-phase countries: Home Office, *Lead sponsors: refugee eligibility
+criteria*, 29 October 2026. Skill level and shortage-list status: Migration Advisory Committee,
 *Temporary Shortage List stage 2 report*, Annex 4 (SOC 2020 occupation
 information). Geometry: Natural Earth (public domain) via world-atlas 2.0.2.
 
@@ -179,9 +190,8 @@ asset serves, 26 catalogue countries and 7 gold rings render, default total
 **Carried by this README, not by the figure's note.** The note was cut to four
 sentences on request (source, first-phase countries, MAC Annex 4, the SOC match),
 so two things it used to say now live only here: the 6,772 excluded candidates,
-and the Natural Earth attribution. The Home Office announcement is named in the
-note but not linked — the statement could not be found on gov.uk, Hansard or the
-parliamentary written-statements database, and no URL was invented for it.
+and the Natural Earth attribution. All three of the note's links were checked
+against the live pages.
 
 **Not yet done:** the resize and analytics contracts have not been exercised
 against the real cgdev.org parent, only against `preview.html`, which cannot
