@@ -2,3 +2,4 @@ node_modules/
 .DS_Store
 qa/shots/
 scripts/.geocache/
+scripts/countries-*.json
