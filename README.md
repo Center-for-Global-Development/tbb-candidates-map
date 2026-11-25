@@ -236,50 +236,53 @@ published CGD layer in `shared/`, which must not be forked or edited here:
 ## Embedding
 
 ```html
-<iframe src="https://center-for-global-development.github.io/tbb-candidates-map/"
-        title="Map: Talent Beyond Boundaries candidates by country and occupation"
-        style="width:100%;border:0" loading="lazy"></iframe>
+<iframe
+  src="https://center-for-global-development.github.io/tbb-candidates-map/"
+  title="Map: Talent Beyond Boundaries candidates by country and occupation"
+  loading="lazy"
+  scrolling="no"
+  style="display:block;width:100%;height:720px;border:0"
+></iframe>
 ```
+
+This follows section 6.4 of the house style guide. An earlier version of this
+README omitted the height and `scrolling="no"`, on the reasoning that a height
+would fight the resize message. That was wrong, and it shipped: an iframe with
+no height falls back to the HTML default of 150px, so on the live blog the
+figure appeared as a 150px slot with its own scrollbar. The initial height is a
+loading placeholder, and the child message is supposed to take over from it.
+
+**The parent listener is not on the blog page.** Checked on
+`/blog/uk-has-new-displaced-talent-visa-now-how-do-we-make-sure-it-works`:
+the string `cgd-iframe-resize` appears nowhere in the page HTML, nor in any of
+the 46 readable scripts it loads. The Flourish embeds on the same page resize
+because Flourish ships its own parent script. So the child posts its height to
+a page with nothing listening for it, and the placeholder height is the height
+the reader gets. Fixing that is a communications task: add the section 6.3
+listener to the parent template, and note that the analytics allowlist is
+separate infrastructure from the resize one.
+
+### Height, while the placeholder is doing the work
+
+The embed column on cgdev.org runs from about 328px (phone) to 690px (1440px
+viewport), and is 489px at a 1024px viewport. Measured against the published
+child:
+
+| Embed column | At rest | With a country card open |
+|---|---|---|
+| 328–490px | 645–661px | 1043–1058px |
+| 560–620px | 654–718px | 1051–1116px |
+| 700–930px | 694–758px | no change — the card is an overlay |
+
+`720px` covers every column width at rest. It does **not** cover a country card
+opened below a 620px column, where the card lays out under the map and the
+figure grows by about 400px: that gets clipped until the parent listens. Making
+the card an overlay at narrower widths would cap the height and remove the
+problem, at the cost of changing reviewed behaviour; not done.
 
 The child posts `{type:'cgd-iframe-resize', height}` to `https://www.cgdev.org`
-and observes `document.body`, so the frame grows **and** shrinks. Analytics are
-documented in [`TRACKING.md`](TRACKING.md).
-
-## Social stills
-
-```bash
-python scripts/make-social.py      # writes social/*.png at 2x
-```
-
-`social.html` renders the map with no controls, a title and a one-line
-subtitle, for posting as an image. It is not the figure: no interaction, no
-resize or analytics contract, and it is marked `data-cgd-harness` so the gate
-skips it. It reads the same `data/` files and repeats the figure's colour ramp
-and threshold rules verbatim, so the still cannot drift from the live map's
-shading.
-
-Three things it does differently, all for a thumbnail rather than a reader:
-
-* **It crops to the countries, not to the figure's frame.** The live frame is
-  padded to hold a readable aspect on a phone, which leaves a band of empty
-  ocean; the still measures what was drawn, gold rings included, and crops to
-  that.
-* **The gold ring is 2.4px, not 1.9px.** It has to survive being looked at 400px
-  wide in a timeline.
-* **It loads Inter.** The figure doesn't: on cgdev.org the parent supplies Sofia
-  Pro. A headless browser has neither, and a still rendered in whatever sans the
-  machine happens to have is not something to publish.
-
-Two files. `16x9` is 1200×675, the safe size for a link card. `natural` lets the
-canvas take the height the map wants, which gives the map more room in a
-timeline post. The subtitle's two numbers — seven countries, 68% elsewhere —
-are computed from the data rather than typed, so the still cannot keep
-asserting either after a rebuild changes them. `?sub=` overrides the wording
-for a one-off without touching the file.
-
-The CGD lockup in the corner is `assets/cgd-logo.png`, supplied by CGD and
-trimmed to its own bounds so the width in the stylesheet is the width you see.
-It is set by width only, never height, so the mark cannot be squashed.
+and observes `document.body`, so the frame grows **and** shrinks as soon as a
+listener exists. Analytics are documented in [`TRACKING.md`](TRACKING.md).
 
 ## QA
 
@@ -321,7 +324,11 @@ so two things it used to say now live only here: the 6,772 excluded candidates,
 and the Natural Earth attribution. All three of the note's links were checked
 against the live pages.
 
-**Not yet done:** the resize and analytics contracts have not been exercised
-against the real cgdev.org parent, only against `preview.html`, which cannot
-verify the origin allowlist. The catalogue extract carries no date; add one to
+**Now tested against the real parent, and failing there.** The resize contract
+does not work on cgdev.org: the parent has no listener for the message (see
+**Embedding**). The child side is correct — right message type, right target
+origin, `document.body` observed — and the page's own origin is
+`https://www.cgdev.org`, so the message is being delivered and ignored. The
+analytics contract is untested for the same reason and should not be assumed to
+work either. The catalogue extract carries no date; add one to
 the figure's note before publication.
