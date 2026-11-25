@@ -107,7 +107,9 @@
      Anchored over the map panel, not the viewport. The figure is embedded in a
      page that sizes the iframe to the whole content, so a viewport-fixed card
      centres itself in the full document height and can land off-screen; over
-     the panel it always opens where the reader just clicked. */
+     the panel it always opens where the reader just clicked. Below 620px the
+     same card is centred over the whole figure instead — see the rule further
+     down — because the panel alone is too short to hold it. */
   .chart-area{position:relative}
   .cmap-backdrop{position:absolute;inset:0;z-index:30;background:rgba(26,39,42,.38);
     display:flex;align-items:center;justify-content:center;padding:10px;border-radius:10px}
@@ -134,23 +136,32 @@
   .occ-row .track i{display:block;height:100%;background:#2D99B5;border-radius:3px}
   .occ-empty{padding:14px 2px;font-size:11.6px;color:var(--cgd-dark-gray)}
 
-  /* On a phone the map is about 150px tall, so there is no room to float a
-     card over it: the detail becomes a section under the map and the frame
-     grows to fit. Same content, same controls, same close button — the layout
-     is complete on its own rather than a shrunken desktop overlay. */
+  /* Narrow: the card still floats, but over the whole figure rather than over
+     the map alone. The map is only about 150px tall here and a card cannot
+     float over that — which is why this used to be a section under the map,
+     with the frame growing by about 400px to fit it.
+
+     That growth depends on the parent applying the height the figure reports,
+     and on cgdev.org nothing listens for it (see README, Embedding). The
+     figure was published inside a fixed-height iframe, where growing means
+     being clipped. Floating over the whole figure keeps the body height
+     constant in every state, so a fixed height is always the right height.
+
+     Done by taking the positioning context off .chart-area rather than by
+     switching to position:fixed. Fixed would resolve against the iframe's
+     viewport, which once the parent does size the frame to its content is the
+     whole document — a card centred in that can sit off-screen. The figure is
+     about a screenful, so centring in it always lands where the reader is. */
   @media (max-width:620px){
-    .cmap-backdrop{position:static;display:block;background:none;padding:0}
-    .cmap-card{width:100%;max-height:none;margin-top:10px;padding:12px;
-      border:1px solid var(--border,#D9E1E4);box-shadow:none}
-    #occBand{flex-wrap:wrap}
-    #occBand button{flex:1 1 30%}
-    .occ-list{height:236px}
+    .chart-area{position:static}
+    .cmap-backdrop{padding:12px;border-radius:10px}
+    .cmap-card{width:100%;max-width:420px}
+    #occBand button{font-size:10.5px;padding-inline:4px}
   }
-  .cgd-mobile-embed .cmap-backdrop{position:static;display:block;background:none;padding:0}
-  .cgd-mobile-embed .cmap-card{width:100%;max-height:none;margin-top:10px;padding:12px;
-    border:1px solid var(--border,#D9E1E4);box-shadow:none}
-  .cgd-mobile-embed #occBand{flex-wrap:wrap}
-  .cgd-mobile-embed #occBand button{flex:1 1 30%}
+  .cgd-mobile-embed .chart-area{position:static}
+  .cgd-mobile-embed .cmap-backdrop{padding:12px;border-radius:10px}
+  .cgd-mobile-embed .cmap-card{width:100%;max-width:420px}
+  .cgd-mobile-embed #occBand button{font-size:10.5px;padding-inline:4px}
 
   .notes a{color:var(--cgd-light-teal);text-decoration:underline}
   .notes a:hover{color:var(--cgd-teal)}

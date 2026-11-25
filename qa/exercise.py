@@ -147,17 +147,42 @@ with sync_playwright() as p:
     check("map band unchanged", page.evaluate(BAND), "ALL")
 
     print("resize with the card open")
-    tall = page.evaluate(HEIGHT)
+    wide_open = page.evaluate(HEIGHT)
     page.set_viewport_size({"width": 360, "height": 900})
     page.wait_for_timeout(300)
     check("card survives resize", page.evaluate(DRILL), True)
     check("selection survives resize", page.evaluate(SEL), "818")
     check("still exactly one outline", page.evaluate(OUTLINES), 1)
-    narrow = page.evaluate(HEIGHT)
-    check("frame grows when narrow", narrow > tall, True)
+    check("the card is inside the figure, not hanging off it",
+          page.evaluate("() => { const c = document.querySelector('.cmap-card').getBoundingClientRect();"
+                        " const r = document.getElementById('vizRoot').getBoundingClientRect();"
+                        " return c.height > 100 && c.top >= r.top - 1 && c.bottom <= r.bottom + 1; }"), True)
     page.set_viewport_size({"width": 1100, "height": 900})
     page.wait_for_timeout(300)
-    check("frame shrinks again", page.evaluate(HEIGHT) <= tall + 2, True)
+    check("frame returns to the height it had", page.evaluate(HEIGHT), wide_open)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(200)
+
+    # The figure is published in a fixed-height iframe, because the cgdev.org
+    # parent has no listener for the height it reports. A state that makes the
+    # body taller is a state that gets clipped, so opening a country must not
+    # change the height at any width. This is what the card stops being a
+    # section under the map and becomes an overlay over the whole figure for.
+    print("opening a country never changes the frame height")
+    for w in (328, 489, 611, 700, 930):
+        page.set_viewport_size({"width": w, "height": 1100})
+        page.wait_for_timeout(250)
+        shut = page.evaluate(HEIGHT)
+        page.evaluate("() => window.TBB_MAP.open('422')")
+        page.wait_for_timeout(250)
+        check("  %dpx wide" % w, page.evaluate(HEIGHT), shut)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(150)
+    page.keyboard.press("Escape")
+    page.set_viewport_size({"width": 1100, "height": 900})
+    page.wait_for_timeout(250)
+    page.evaluate("() => window.TBB_MAP.open('818')")
+    page.wait_for_timeout(250)
 
     print("escape closes one layer at a time")
     page.keyboard.press("Escape")
