@@ -38,8 +38,10 @@
   .pad{padding:0 40px}
   h1{margin:34px 0 0;font-size:35px;line-height:1.14;font-weight:700;color:var(--teal);
      letter-spacing:-.011em}
-  .sub{margin:11px 0 0;font-size:19px;line-height:1.36;font-weight:400;color:var(--grey);
-       max-width:52em;text-wrap:balance}
+  /* No max-width and no text-wrap:balance. Balancing evens the two lines out,
+     which reads as the first one giving up halfway across; the subtitle should
+     run to the end of the measure and wrap only when it has to. */
+  .sub{margin:11px 0 0;font-size:19px;line-height:1.36;font-weight:400;color:var(--grey)}
   /* The map takes whatever is left, and the SVG letterboxes inside it, so one
      page serves every canvas the social channels want. */
   .map{flex:1 1 auto;min-height:0;margin:14px 0 0;position:relative}
@@ -226,8 +228,9 @@
 
   document.getElementById('src').textContent =
     `${fmt(total)} candidates registered with Talent Beyond Boundaries, across `
-    + `${COUNTRIES.length} countries of residence. Not applicants to any UK route. `
-    + 'Skill levels: MAC Temporary Shortage List stage 2, Annex 4, matched to SOC 2020 '
+    + `${COUNTRIES.length} countries of residence. `
+    // Non-breaking: the line was splitting after "Annex".
+    + 'Skill levels: MAC Temporary Shortage List stage 2, Annex 4, matched to SOC 2020 '
     + 'by CGD. First-phase countries: Home Office, 29 October 2026.';
 
   // Let the renderer wait for this rather than guess at a delay.
