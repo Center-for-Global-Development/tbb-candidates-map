@@ -186,21 +186,10 @@ check to find.
   the data made the scale depend on whichever land touched the edge - which was
   Fiji's wrapped polygon, so fixing the line above silently resized the whole
   map.
-* **The country breakdown floats at every width — over the panel on a laptop,
-  over the whole figure below 620px.** The map is about 150px tall on a phone
-  and a card cannot float over that, which is why this was once a section under
-  the map with the frame growing by about 400px to fit it. That growth depends
-  on the parent applying the height the figure reports, and on cgdev.org
-  nothing listens for it, so the figure is published in a fixed-height iframe
-  where growing means being clipped. Floating over the whole figure keeps the
-  body height constant in every state.
-
-  Done by taking the positioning context off `.chart-area` below 620px, so the
-  card's `position:absolute` resolves against the figure root instead. Not by
-  `position:fixed`: that resolves against the iframe's viewport, which once a
-  parent does size the frame to its content is the whole document, and a card
-  centred in that can sit off-screen. The figure is about a screenful, so
-  centring in it always lands where the reader is looking.
+* **The country breakdown is an overlay on a laptop and a section on a phone.**
+  At 320px the map is about 150px tall, so a card floated over it has nowhere to
+  go. Below 620px the same card is laid out under the map instead and the frame
+  grows to fit. Same content, same controls - not a shrunken desktop overlay.
 * **The breakdown ignores the map's occupation filter.** A list of occupations
   filtered to one occupation is a list of one row.
 * **Hover is a halo, not a colour change.** The fill is the data and the gold
@@ -252,7 +241,7 @@ published CGD layer in `shared/`, which must not be forked or edited here:
   title="Map: Talent Beyond Boundaries candidates by country and occupation"
   loading="lazy"
   scrolling="no"
-  style="display:block;width:100%;height:760px;border:0"
+  style="display:block;width:100%;height:720px;border:0"
 ></iframe>
 ```
 
@@ -276,19 +265,20 @@ separate infrastructure from the resize one.
 ### Height, while the placeholder is doing the work
 
 The embed column on cgdev.org runs from about 328px (phone) to 690px (1440px
-viewport), and is 489px at a 1024px viewport.
+viewport), and is 489px at a 1024px viewport. Measured against the published
+child:
 
-Swept every width from 320px to 940px against the published child, the figure
-is never taller than **753px**, at 920px wide. `760px` therefore clears it
-everywhere, in every state. At the common 489px column the figure is 660px, so
-the placeholder leaves about 100px of white below it — which disappears the
-moment a parent listener exists and the real height is applied.
+| Embed column | At rest | With a country card open |
+|---|---|---|
+| 328–490px | 645–661px | 1043–1058px |
+| 560–620px | 654–718px | 1051–1116px |
+| 700–930px | 694–758px | no change — the card is an overlay |
 
-This only holds because opening a country no longer changes the height: see
-**The country breakdown floats at every width** below. Before that change the
-figure grew by about 400px below a 620px column, which in a fixed-height frame
-meant the card was simply cut off. `qa/exercise.py` checks the height is
-unchanged by opening a country at 328, 489, 611, 700 and 930px.
+`720px` covers every column width at rest. It does **not** cover a country card
+opened below a 620px column, where the card lays out under the map and the
+figure grows by about 400px: that gets clipped until the parent listens. Making
+the card an overlay at narrower widths would cap the height and remove the
+problem, at the cost of changing reviewed behaviour; not done.
 
 The child posts `{type:'cgd-iframe-resize', height}` to `https://www.cgdev.org`
 and observes `document.body`, so the frame grows **and** shrinks as soon as a
