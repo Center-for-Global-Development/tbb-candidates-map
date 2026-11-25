@@ -245,6 +245,37 @@ The child posts `{type:'cgd-iframe-resize', height}` to `https://www.cgdev.org`
 and observes `document.body`, so the frame grows **and** shrinks. Analytics are
 documented in [`TRACKING.md`](TRACKING.md).
 
+## Social stills
+
+```bash
+python scripts/make-social.py      # writes social/*.png at 2x
+```
+
+`social.html` renders the map with no controls, a title and a one-line
+subtitle, for posting as an image. It is not the figure: no interaction, no
+resize or analytics contract, and it is marked `data-cgd-harness` so the gate
+skips it. It reads the same `data/` files and repeats the figure's colour ramp
+and threshold rules verbatim, so the still cannot drift from the live map's
+shading.
+
+Three things it does differently, all for a thumbnail rather than a reader:
+
+* **It crops to the countries, not to the figure's frame.** The live frame is
+  padded to hold a readable aspect on a phone, which leaves a band of empty
+  ocean; the still measures what was drawn, gold rings included, and crops to
+  that.
+* **The gold ring is 2.4px, not 1.9px.** It has to survive being looked at 400px
+  wide in a timeline.
+* **It loads Inter.** The figure doesn't: on cgdev.org the parent supplies Sofia
+  Pro. A headless browser has neither, and a still rendered in whatever sans the
+  machine happens to have is not something to publish.
+
+Four files, two shapes and two subtitles. `16x9` is 1200×675, the safe size for
+a link card. `natural` lets the canvas take the height the map wants, which
+gives the map more room in a timeline post. `brief` carries the supplied
+subtitle; `finding` carries the map's own headline (seven countries, 68%
+elsewhere), and the numbers in it are computed from the data rather than typed.
+
 ## QA
 
 ```bash

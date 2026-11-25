@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en" data-cgd-harness="true">
+<head>
+<meta charset="utf-8" />
+<title>TBB candidates map — social still</title>
+<!--
+  A still of the map for social media. Not the published figure: no controls,
+  no interaction, no resize or analytics contract. It exists to be rendered to
+  a PNG by scripts/make-social.py and is not linked from anywhere.
+
+  Marked data-cgd-harness so the QA gate skips it. The gate verifies every
+  top-level .html as an embedded figure, and this one would fail on purpose:
+  it has no cgd-embed.js, so no resize contract and no CGD_READY.
+
+  It reuses the figure's own data and geometry files and repeats its colour
+  ramp and threshold rules verbatim, so the still cannot drift from the live
+  map's shading. Everything else — the layout, the type scale — is sized for a
+  thumbnail rather than for a reader at a desk.
+
+  Inter is loaded here, which the figure itself does not do. On cgdev.org the
+  parent page supplies Sofia Pro; a headless browser has neither, and a still
+  rendered in whatever sans the machine happens to have is not something to
+  publish. Inter is the figure's own first fallback.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --teal:#0B4C5B; --teal-black:#1A272A; --light-teal:#2D99B5;
+    --gold:#F5A623; --grey:#5A6B6F; --border:#D9E1E4;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#fff;
+    font-family:Inter,"Helvetica Neue",Arial,sans-serif;color:var(--teal-black);
+    -webkit-font-smoothing:antialiased}
+  #card{display:flex;flex-direction:column;background:#fff;overflow:hidden}
+  .pad{padding:0 40px}
+  h1{margin:34px 0 0;font-size:35px;line-height:1.14;font-weight:700;color:var(--teal);
+     letter-spacing:-.011em}
+  .sub{margin:11px 0 0;font-size:19px;line-height:1.36;font-weight:400;color:var(--grey);
+       max-width:52em;text-wrap:balance}
+  /* The map takes whatever is left, and the SVG letterboxes inside it, so one
+     page serves every canvas the social channels want. */
+  .map{flex:1 1 auto;min-height:0;margin:14px 0 0;position:relative}
+  .map svg{display:block;width:100%;height:100%}
+  .key{display:flex;align-items:center;flex-wrap:wrap;gap:6px 16px;
+       margin:6px 0 0;font-size:14px;color:var(--grey)}
+  .key .bin{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .key .chip{width:26px;height:13px;border:1px solid rgba(26,39,42,.10);flex:0 0 auto}
+  .key .chip.ho{background:#fff;border:2.5px solid var(--gold)}
+  .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;
+        margin:0 0 28px;padding-top:10px;font-size:12.5px;line-height:1.45;color:#7C8C90}
+  .foot .src{max-width:74em}
+  .foot .brand{font-weight:700;color:var(--teal);font-size:14px;white-space:nowrap}
+  /* Geography: identical rules to the figure, so the still cannot look like a
+     different map. Strokes do not scale, so they stay hairlines at any size. */
+  .context{fill:#E9EBEC;stroke:#fff;stroke-width:.5;vector-effect:non-scaling-stroke}
+  .country{stroke:#7E9499;stroke-width:.7;vector-effect:non-scaling-stroke;
+    stroke-linejoin:miter;stroke-miterlimit:2}
+  .ho-ring{fill:none;stroke:var(--gold);stroke-width:2.4;vector-effect:non-scaling-stroke;
+    stroke-linejoin:round}
+</style>
+</head>
+<body>
+<div id="card">
+  <div class="pad">
+    <h1 id="title">Where are the skilled refugees the UK could recruit?</h1>
+    <p class="sub" id="sub"></p>
+  </div>
+  <div class="map pad" id="map"></div>
+  <div class="pad"><div class="key" id="key"></div></div>
+  <div class="pad foot">
+    <div class="src" id="src"></div>
+    <div class="brand">CGD</div>
+  </div>
+</div>
+
+<script src="data/world-paths.js"></script>
+<script src="data/tbb-candidates-data.js"></script>
+<script>
+(function () {
+  const GEO = window.TBB_GEO, DATA = window.TBB_DATA;
+  const OCCS = DATA.occupations, COUNTRIES = DATA.countries, VIEW = GEO.view;
+  const q = new URLSearchParams(location.search);
+
+  // Canvas: whatever the renderer asks for, so one page serves every channel.
+  // With a height, the map letterboxes inside whatever is left — right for a
+  // link card, which must be exactly 16:9. Without one, the map is given its
+  // own aspect and the canvas ends up as tall as the content needs, which
+  // wastes no space and is the better thing to post in a timeline.
+  const W = +q.get('w') || 1200, H = +q.get('h') || 0;
+  const card = document.getElementById('card');
+  card.style.width = W + 'px';
+  if (H) card.style.height = H + 'px';
+
+  const fmt = n => n.toLocaleString('en-GB');
+
+  // ---- shading: the figure's rules, repeated verbatim ----------------------
+  const RAMP = ['#CDE6E9', '#A7D5DB', '#79BECB', '#2D99B5', '#006970', '#0B4C5B'];
+  const NICE = [1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10];
+  function niceCeil(x) {
+    const k = Math.pow(10, Math.floor(Math.log10(x)));
+    return Math.round(k * NICE.find(m => x <= m * k + 1e-9));
+  }
+  function thresholds(totals) {
+    const vals = totals.filter(v => v > 0);
+    if (!vals.length) return [];
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    if (lo === hi) return [hi];
+    const out = [];
+    for (let i = 1; i <= RAMP.length; i++) {
+      const t = i === RAMP.length ? hi : niceCeil(lo * Math.pow(hi / lo, i / RAMP.length));
+      if (t >= hi) { out.push(hi); break; }
+      if (!out.length || t > out[out.length - 1]) out.push(t);
+    }
+    return out;
+  }
+  const binOf = (v, ths) => { const i = ths.findIndex(t => v <= t); return i === -1 ? ths.length - 1 : i; };
+  const rampColour = (bin, n) => n < 2 ? RAMP[RAMP.length - 1] : RAMP[Math.round(bin * (RAMP.length - 1) / (n - 1))];
+
+  // Default state: every occupation, every skill level, nothing selected.
+  const totals = COUNTRIES.map((_, i) => OCCS.reduce((a, o) => a + o.v[i], 0));
+  const ths = thresholds(totals);
+  const total = totals.reduce((a, b) => a + b, 0);
+  const hoTotal = COUNTRIES.reduce((a, c, i) => a + (c.ho ? totals[i] : 0), 0);
+  const hoCount = COUNTRIES.filter(c => c.ho).length;
+
+  const svgEl = (t, a = {}) => {
+    const e = document.createElementNS('http://www.w3.org/2000/svg', t);
+    for (const k in a) e.setAttribute(k, a[k]);
+    return e;
+  };
+  const svg = svgEl('svg', {
+    viewBox: `${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`,
+    preserveAspectRatio: 'xMidYMid meet',
+    role: 'img',
+    'aria-label': `Map of ${fmt(total)} Talent Beyond Boundaries candidates across `
+      + `${COUNTRIES.length} countries of residence.`
+  });
+
+  const defs = svgEl('defs');
+  const pat = svgEl('pattern', { id: 'zeroHatch', patternUnits: 'userSpaceOnUse',
+                                 patternTransform: 'rotate(45)' });
+  const hatchRect = svgEl('rect', { fill: '#F4F6F7' });
+  const hatchLine = svgEl('line', { x1: 0, y1: 0, x2: 0, stroke: '#B9C3C6' });
+  pat.append(hatchRect, hatchLine);
+  defs.append(pat);
+  svg.append(defs);
+
+  svg.append(svgEl('path', { class: 'context', d: GEO.context }));
+  const fills = svgEl('g'), rings = svgEl('g');
+  COUNTRIES.forEach((c, i) => {
+    const g = GEO.countries[c.id], n = totals[i];
+    const node = svgEl('path', { class: 'country', d: g.d });
+    node.style.fill = n === 0 ? 'url(#zeroHatch)' : rampColour(binOf(n, ths), ths.length);
+    fills.append(node);
+    if (c.ho) rings.append(svgEl('path', { class: 'ho-ring', d: g.d }));
+  });
+  svg.append(fills, rings);
+  const mapBox = document.getElementById('map');
+  mapBox.append(svg);
+
+  // Crop to the countries themselves. The live figure pads its frame to hold a
+  // readable aspect on a phone, which leaves a lot of empty ocean south and
+  // west; a still has no phone to satisfy and every wasted pixel is one the
+  // countries could have had. Measured from what was actually drawn, gold
+  // rings included, so it cannot drift from the geometry.
+  const bb = fills.getBBox(), rb = rings.getBBox();
+  const x0 = Math.min(bb.x, rb.x), y0 = Math.min(bb.y, rb.y);
+  const x1 = Math.max(bb.x + bb.width, rb.x + rb.width);
+  const y1 = Math.max(bb.y + bb.height, rb.y + rb.height);
+  const pad = (x1 - x0) * 0.022;
+  const BOX = { x: x0 - pad, y: y0 - pad, w: (x1 - x0) + 2 * pad, h: (y1 - y0) + 2 * pad };
+  svg.setAttribute('viewBox', `${BOX.x} ${BOX.y} ${BOX.w} ${BOX.h}`);
+  if (!H) {
+    mapBox.style.flex = '0 0 auto';
+    mapBox.style.aspectRatio = BOX.w + ' / ' + BOX.h;
+  }
+
+  // The hatch is in frame units, so it is sized from the scale the still will
+  // actually be drawn at: a constant 5px pitch, as on the live map.
+  const k = (W - 80) / BOX.w;
+  const hp = 5 / k;
+  pat.setAttribute('width', hp);
+  pat.setAttribute('height', hp);
+  hatchRect.setAttribute('width', hp);
+  hatchRect.setAttribute('height', hp);
+  hatchLine.setAttribute('y2', hp);
+  hatchLine.setAttribute('stroke-width', 1.6 / k);
+
+  // ---- key -----------------------------------------------------------------
+  const key = document.getElementById('key');
+  const bin = (bg, label, ho) => {
+    const b = document.createElement('span');
+    b.className = 'bin';
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (ho ? ' ho' : '');
+    if (bg) chip.style.background = bg;
+    const t = document.createElement('span');
+    t.textContent = label;
+    b.append(chip, t);
+    return b;
+  };
+  const lead = document.createElement('span');
+  lead.className = 'bin';
+  lead.textContent = 'Candidates:';
+  key.append(lead,
+    bin('repeating-linear-gradient(45deg,#F4F6F7,#F4F6F7 3px,#B9C3C6 3px,#B9C3C6 5px)', 'none'),
+    ...ths.map((t, i) => bin(rampColour(i, ths.length),
+      i === ths.length - 1 ? fmt(ths[i - 1] ? ths[i - 1] + 1 : 1) + '+' : '≤' + fmt(t))),
+    bin(null, 'first-phase country', true));
+
+  // ---- words ---------------------------------------------------------------
+  const WORD = { 5: 'five', 6: 'six', 7: 'seven', 8: 'eight' };
+  const SUBS = {
+    brief: 'The UK will soon start recruiting skilled displaced workers through a new visa, '
+         + 'but must identify the host countries to work with.',
+    finding: `The UK’s new visa for displaced workers opens in ${WORD[hoCount] || hoCount} `
+         + 'countries, ringed in gold. '
+         + `${Math.round(100 - 100 * hoTotal / total)}% of the skilled refugees registered with `
+         + `Talent Beyond Boundaries live somewhere else.`
+  };
+  document.getElementById('sub').textContent = SUBS[q.get('sub')] || SUBS.brief;
+  if (q.get('title')) document.getElementById('title').textContent = q.get('title');
+
+  document.getElementById('src').textContent =
+    `${fmt(total)} candidates across ${COUNTRIES.length} countries of residence; people `
+    + 'registered with Talent Beyond Boundaries, not applicants to any UK route. '
+    + 'Skill levels: MAC Temporary Shortage List stage 2, Annex 4, matched to SOC 2020 by CGD. '
+    + 'First-phase countries: Home Office, 29 October 2026.';
+
+  // Let the renderer wait for this rather than guess at a delay.
+  document.fonts.ready.then(() => { window.SOCIAL_READY = true; });
+})();
+</script>
+</body>
+</html>
