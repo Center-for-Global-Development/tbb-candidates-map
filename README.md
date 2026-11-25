@@ -270,11 +270,16 @@ Three things it does differently, all for a thumbnail rather than a reader:
   Pro. A headless browser has neither, and a still rendered in whatever sans the
   machine happens to have is not something to publish.
 
-Four files, two shapes and two subtitles. `16x9` is 1200×675, the safe size for
-a link card. `natural` lets the canvas take the height the map wants, which
-gives the map more room in a timeline post. `brief` carries the supplied
-subtitle; `finding` carries the map's own headline (seven countries, 68%
-elsewhere), and the numbers in it are computed from the data rather than typed.
+Two files. `16x9` is 1200×675, the safe size for a link card. `natural` lets the
+canvas take the height the map wants, which gives the map more room in a
+timeline post. The subtitle's two numbers — seven countries, 68% elsewhere —
+are computed from the data rather than typed, so the still cannot keep
+asserting either after a rebuild changes them. `?sub=` overrides the wording
+for a one-off without touching the file.
+
+The CGD lockup in the corner is `assets/cgd-logo.png`, supplied by CGD and
+trimmed to its own bounds so the width in the stylesheet is the width you see.
+It is set by width only, never height, so the mark cannot be squashed.
 
 ## QA
 

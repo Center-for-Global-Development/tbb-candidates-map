@@ -17,14 +17,13 @@ REPO = Path(__file__).resolve().parent.parent
 OUT = REPO / "social"
 SCALE = 2
 
-# name -> (width, height, subtitle key)
+# name -> (width, height)
 # 1200x675 is the 16:9 that link cards and X both accept without cropping.
-# 1200x800 is for a timeline post, where the extra height goes to the map.
+# Height 0 lets the canvas take whatever the map wants, which gives the map
+# more room in a timeline post.
 SHOTS = [
-    ("tbb-map-16x9-brief",     1200, 675, "brief"),
-    ("tbb-map-16x9-finding",   1200, 675, "finding"),
-    ("tbb-map-natural-brief",  1200, 0,   "brief"),
-    ("tbb-map-natural-finding", 1200, 0,  "finding"),
+    ("tbb-map-16x9",    1200, 675),
+    ("tbb-map-natural", 1200, 0),
 ]
 
 handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(REPO))
@@ -36,12 +35,12 @@ port = srv.server_address[1]
 OUT.mkdir(exist_ok=True)
 with sync_playwright() as p:
     browser = p.chromium.launch()
-    for name, w, h, sub in SHOTS:
+    for name, w, h in SHOTS:
         page = browser.new_page(viewport={"width": w, "height": h or 1000},
                                 device_scale_factor=SCALE)
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
-        url = f"http://127.0.0.1:{port}/social.html?w={w}&sub={sub}"
+        url = f"http://127.0.0.1:{port}/social.html?w={w}"
         if h:
             url += f"&h={h}"
         page.goto(url, wait_until="load")

@@ -52,7 +52,9 @@
   .foot{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;
         margin:0 0 28px;padding-top:10px;font-size:12.5px;line-height:1.45;color:#7C8C90}
   .foot .src{max-width:74em}
-  .foot .brand{font-weight:700;color:var(--teal);font-size:14px;white-space:nowrap}
+  /* The supplied lockup, at a width where its four lines of wordmark still
+     resolve. Height is left to the aspect so the mark cannot be squashed. */
+  .foot .brand{width:152px;height:auto;flex:0 0 auto;display:block}
   /* Geography: identical rules to the figure, so the still cannot look like a
      different map. Strokes do not scale, so they stay hairlines at any size. */
   .context{fill:#E9EBEC;stroke:#fff;stroke-width:.5;vector-effect:non-scaling-stroke}
@@ -72,7 +74,7 @@
   <div class="pad"><div class="key" id="key"></div></div>
   <div class="pad foot">
     <div class="src" id="src"></div>
-    <div class="brand">CGD</div>
+    <img class="brand" src="assets/cgd-logo.png" alt="Center for Global Development" />
   </div>
 </div>
 
@@ -213,22 +215,20 @@
 
   // ---- words ---------------------------------------------------------------
   const WORD = { 5: 'five', 6: 'six', 7: 'seven', 8: 'eight' };
-  const SUBS = {
-    brief: 'The UK will soon start recruiting skilled displaced workers through a new visa, '
-         + 'but must identify the host countries to work with.',
-    finding: `The UK’s new visa for displaced workers opens in ${WORD[hoCount] || hoCount} `
-         + 'countries, ringed in gold. '
-         + `${Math.round(100 - 100 * hoTotal / total)}% of the skilled refugees registered with `
-         + `Talent Beyond Boundaries live somewhere else.`
-  };
-  document.getElementById('sub').textContent = SUBS[q.get('sub')] || SUBS.brief;
+  // The count and the share are computed, not typed, so the still cannot keep
+  // asserting "seven" or "68%" after a rebuild changes either.
+  const sub = `The UK’s new visa for displaced workers will soon be accessible from `
+    + `${WORD[hoCount] || hoCount} countries. But `
+    + `${Math.round(100 - 100 * hoTotal / total)}% of registered skilled refugees are `
+    + 'hosted somewhere else.';
+  document.getElementById('sub').textContent = q.get('sub') || sub;
   if (q.get('title')) document.getElementById('title').textContent = q.get('title');
 
   document.getElementById('src').textContent =
-    `${fmt(total)} candidates across ${COUNTRIES.length} countries of residence; people `
-    + 'registered with Talent Beyond Boundaries, not applicants to any UK route. '
-    + 'Skill levels: MAC Temporary Shortage List stage 2, Annex 4, matched to SOC 2020 by CGD. '
-    + 'First-phase countries: Home Office, 29 October 2026.';
+    `${fmt(total)} candidates registered with Talent Beyond Boundaries, across `
+    + `${COUNTRIES.length} countries of residence. Not applicants to any UK route. `
+    + 'Skill levels: MAC Temporary Shortage List stage 2, Annex 4, matched to SOC 2020 '
+    + 'by CGD. First-phase countries: Home Office, 29 October 2026.';
 
   // Let the renderer wait for this rather than guess at a delay.
   document.fonts.ready.then(() => { window.SOCIAL_READY = true; });
